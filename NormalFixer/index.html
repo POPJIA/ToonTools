@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Normal Fixer Pro - 红色法线修复工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Normal Fixer Pro</h1>
+            <p class="subtitle">自动重组 Unity 红色贴图 (R=A, G=B) 并转换 OpenGL/DirectX</p>
+        </header>
+
+        <main class="main-card">
+            <div class="upload-zone" id="dropZone">
+                <span class="upload-icon">📁</span>
+                <p>点击或拖拽 "红色贴图" 到这里</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 8px;">支持 PNG, JPG, TGA (通过浏览器支持)</p>
+                <input type="file" id="fileInput" hidden accept="image/*">
+            </div>
+
+            <div class="controls">
+                <div class="switch-group">
+                    <button class="switch-btn active gl" id="btnGL">OpenGL (Y+)</button>
+                    <button class="switch-btn dx" id="btnDX">DirectX (Y-)</button>
+                </div>
+                <div class="switch-group">
+                    <select id="exportFormat" style="background: transparent; color: white; border: none; padding: 10px; font-weight: 600; cursor: pointer; outline: none;">
+                        <option value="PNG" style="background: #1a1a1a;">PNG</option>
+                        <option value="TGA" style="background: #1a1a1a;">TGA</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="preview-grid">
+                <div class="preview-box">
+                    <div class="label">Original (Input)</div>
+                    <canvas id="canvasInput"></canvas>
+                </div>
+                <div class="preview-box">
+                    <div class="label" id="outputLabel">Processed (OpenGL)</div>
+                    <canvas id="canvasOutput"></canvas>
+                </div>
+            </div>
+
+            <button class="export-btn" id="exportBtn" disabled>导出修复后的贴图</button>
+        </main>
+
+        <footer style="margin-top: 40px; text-align: center; color: var(--text-dim); font-size: 0.8rem;">
+            <p>基于通道重映射逻辑: X = Alpha, Y = Green, Z = 1.0 (Normalized)</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
