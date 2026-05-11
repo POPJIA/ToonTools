@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POPJIA 卡通工具箱</title>
+    <style>
+        :root {
+            --primary: #ff4757;
+            --secondary: #2f3542;
+            --bg: #f1f2f6;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            margin-bottom: 2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: var(--secondary);
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            width: 90%;
+            max-width: 800px;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            border: 1px solid rgba(0,0,0,0.02);
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(255, 71, 87, 0.1);
+            border-color: var(--primary);
+        }
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .card h3 {
+            margin: 0.5rem 0;
+            font-size: 1.5rem;
+        }
+        .card p {
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+        .badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>POPJIA Toon Toolbox</h1>
+    <div class="container">
+        <!-- Normal Fixer Tool -->
+        <a href="./NormalFixer/index.html" class="card">
+            <div class="badge">Graphics Tool</div>
+            <div class="icon">✨</div>
+            <h3>Normal Fixer</h3>
+            <p>快速修复卡通角色的法线朝向与平滑度</p>
+        </a>
+
+        <!-- Placeholder for future tools -->
+        <div class="card" style="opacity: 0.5; cursor: not-allowed;">
+            <div class="icon">➕</div>
+            <h3>Coming Soon</h3>
+            <p>更多卡通管线工具正在开发中...</p>
+        </div>
+    </div>
+</body>
+</html>
