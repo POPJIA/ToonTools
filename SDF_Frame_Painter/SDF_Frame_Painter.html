@@ -1,0 +1,1063 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDF Channel Frame Extractor</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f4f1;
+      --panel: #ffffff;
+      --line: #cfcfca;
+      --text: #1d1d1b;
+      --muted: #686863;
+      --accent: #1b7f83;
+      --accent-dark: #0f5f63;
+      --danger: #a53a32;
+      --tool: #efefeb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 314px minmax(760px, 1fr);
+    }
+
+    aside {
+      padding: 18px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: auto;
+    }
+
+    main {
+      min-width: 0;
+      padding: 18px 22px 24px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .group {
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .row {
+      margin: 9px 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .row input[type="number"],
+    .row select {
+      width: 108px;
+      padding: 5px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button,
+    .file-button {
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--tool);
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    button:hover,
+    .file-button:hover { border-color: #9b9b94; }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover { background: var(--accent-dark); }
+
+    button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+
+    input[type="file"] { display: none; }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .segmented button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .status {
+      min-width: 250px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) 260px;
+      gap: 16px;
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .stage-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .canvas-shell {
+      min-height: 0;
+      padding: 20px;
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      border-radius: 6px;
+      background:
+        linear-gradient(45deg, #dadad5 25%, transparent 25%),
+        linear-gradient(-45deg, #dadad5 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #dadad5 75%),
+        linear-gradient(-45deg, transparent 75%, #dadad5 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+
+    #preview {
+      width: min(72vh, 680px);
+      height: min(72vh, 680px);
+      background: #000;
+      image-rendering: pixelated;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .thumbs {
+      padding: 12px;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .thumb {
+      padding: 7px;
+      border: 2px solid transparent;
+      border-radius: 7px;
+      background: #f8f8f5;
+      cursor: pointer;
+    }
+
+    .thumb.active {
+      border-color: var(--accent);
+      background: #eef7f7;
+    }
+
+    .thumb canvas,
+    .strip-item canvas,
+    .channel canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid #222;
+      background: #000;
+      image-rendering: pixelated;
+    }
+
+    .thumb-label {
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .strip {
+      padding: 12px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .strip-inner {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 140px;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .strip-item div,
+    .channel div {
+      margin-top: 5px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .thresholds {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      max-height: 210px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .threshold {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .threshold input {
+      min-width: 0;
+      width: 100%;
+      padding: 5px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .channels {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .workspace { grid-template-columns: 1fr; }
+      .thumbs { grid-template-columns: repeat(4, minmax(120px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div>
+        <h1>SDF 通道序列拆解</h1>
+        <p class="hint">导入三通道 SDF，R/G/B 会分别拆成独立的角度帧序列。</p>
+      </div>
+
+      <div class="group">
+        <h2>输入</h2>
+        <label class="file-button" for="sdfInput">导入 SDF.png</label>
+        <input id="sdfInput" type="file" accept="image/*">
+        <p id="sourceInfo" class="hint">还没有导入贴图。</p>
+      </div>
+
+      <div class="group">
+        <h2>当前通道</h2>
+        <div class="segmented">
+          <button id="channelRBtn" class="active" data-channel="r">R</button>
+          <button id="channelGBtn" data-channel="g">G</button>
+          <button id="channelBBtn" data-channel="b">B</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>角度</h2>
+        <label class="row">
+          <span>步长</span>
+          <select id="angleStep">
+            <option value="30" selected>30° / 7 帧</option>
+            <option value="20">20° / 10 帧</option>
+            <option value="15">15° / 13 帧</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>0° 阈值</span>
+          <input id="startThreshold" type="number" min="0" max="255" value="255">
+        </label>
+        <label class="row">
+          <span>180° 阈值</span>
+          <input id="endThreshold" type="number" min="0" max="255" value="1">
+        </label>
+      </div>
+
+      <div class="group">
+        <h2>拆解</h2>
+        <label class="row">
+          <span>判定方式</span>
+          <select id="compareMode">
+            <option value="gte" selected>值 >= 阈值</option>
+            <option value="lte">值 <= 阈值</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>背景保持黑</span>
+          <input id="bgCutoff" type="number" min="0" max="255" value="8">
+        </label>
+        <label class="row">
+          <span>边缘柔化</span>
+          <input id="softness" type="number" min="0" max="64" value="0">
+        </label>
+        <label class="row">
+          <span>碎片过滤</span>
+          <input id="minBlobSize" type="number" min="0" max="4096" value="24">
+        </label>
+        <div class="buttons">
+          <button id="fillThresholdsBtn">重算阈值</button>
+          <button id="extractBtn" class="primary">拆解三通道</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>当前通道阈值</h2>
+        <div id="thresholds" class="thresholds"></div>
+      </div>
+
+      <div class="group">
+        <h2>导出</h2>
+        <div class="buttons">
+          <button id="saveFrameBtn">保存当前帧</button>
+          <button id="saveGroupBtn" class="primary">保存当前帧组</button>
+          <button id="saveAllGroupsBtn">保存三通道帧组</button>
+          <button id="saveAllAtlasBtn">三通道总览</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>原始通道预览</h2>
+        <div class="channels">
+          <div class="channel"><canvas id="rView" width="128" height="128"></canvas><div>R</div></div>
+          <div class="channel"><canvas id="gView" width="128" height="128"></canvas><div>G</div></div>
+          <div class="channel"><canvas id="bView" width="128" height="128"></canvas><div>B</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <strong id="frameTitle">R / 0°</strong>
+          <span class="hint">点击右侧缩略图切换角度</span>
+        </div>
+        <div id="status" class="status">等待导入 SDF</div>
+      </div>
+
+      <section class="workspace">
+        <div class="stage-wrap">
+          <div class="stage-title">
+            <span>拆帧预览</span>
+            <span id="thresholdReadout">threshold 255</span>
+          </div>
+          <div class="canvas-shell">
+            <canvas id="preview" width="512" height="512"></canvas>
+          </div>
+        </div>
+
+        <div id="thumbs" class="thumbs"></div>
+      </section>
+
+      <section class="strip">
+        <div id="strip" class="strip-inner"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CHANNELS = [
+      { key: "r", label: "R", offset: 0 },
+      { key: "g", label: "G", offset: 1 },
+      { key: "b", label: "B", offset: 2 }
+    ];
+
+    const preview = document.getElementById("preview");
+    const pctx = preview.getContext("2d");
+    const thumbs = document.getElementById("thumbs");
+    const strip = document.getElementById("strip");
+    const statusEl = document.getElementById("status");
+    const frameTitle = document.getElementById("frameTitle");
+    const sourceInfo = document.getElementById("sourceInfo");
+    const thresholdReadout = document.getElementById("thresholdReadout");
+    const thresholdsEl = document.getElementById("thresholds");
+    const angleStep = document.getElementById("angleStep");
+    const compareMode = document.getElementById("compareMode");
+    const bgCutoff = document.getElementById("bgCutoff");
+    const softness = document.getElementById("softness");
+    const minBlobSize = document.getElementById("minBlobSize");
+    const startThreshold = document.getElementById("startThreshold");
+    const endThreshold = document.getElementById("endThreshold");
+
+    let activeChannel = "r";
+    let activeIndex = 0;
+    let angles = [];
+    let framesByChannel = {};
+    let sourceCanvas = null;
+    let sourcePixels = null;
+    let sourceWidth = 512;
+    let sourceHeight = 512;
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function smoothStep(edge0, edge1, value) {
+      if (Math.abs(edge1 - edge0) < 0.000001) {
+        return value >= edge1 ? 1 : 0;
+      }
+      const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+      return t * t * (3 - 2 * t);
+    }
+
+    function buildAngles() {
+      const step = Number(angleStep.value) || 30;
+      const nextAngles = [];
+      for (let angle = 0; angle <= 180; angle += step) {
+        nextAngles.push(angle);
+      }
+      if (nextAngles[nextAngles.length - 1] !== 180) {
+        nextAngles.push(180);
+      }
+      angles = nextAngles;
+      activeIndex = Math.min(activeIndex, angles.length - 1);
+    }
+
+    function createFrameSet() {
+      buildAngles();
+      framesByChannel = {};
+      CHANNELS.forEach((channel) => {
+        framesByChannel[channel.key] = angles.map((angle) => ({
+          angle,
+          threshold: 0,
+          canvas: document.createElement("canvas"),
+          input: null
+        }));
+      });
+      fillThresholds(false);
+      clearAllCanvases();
+      createThresholdInputs();
+    }
+
+    function getFrames(channelKey = activeChannel) {
+      return framesByChannel[channelKey] || [];
+    }
+
+    function currentChannelInfo() {
+      return CHANNELS.find((channel) => channel.key === activeChannel) || CHANNELS[0];
+    }
+
+    function createThresholdInputs() {
+      thresholdsEl.innerHTML = "";
+      getFrames().forEach((frame) => {
+        const label = document.createElement("label");
+        label.className = "threshold";
+        const span = document.createElement("span");
+        span.textContent = `${frame.angle}°`;
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.max = "255";
+        input.value = String(frame.threshold);
+        input.addEventListener("input", () => {
+          frame.threshold = clamp(Number(input.value) || 0, 0, 255);
+          extractFrames();
+        });
+        label.appendChild(span);
+        label.appendChild(input);
+        thresholdsEl.appendChild(label);
+        frame.input = input;
+      });
+    }
+
+    function fillThresholds(shouldExtract = true) {
+      const start = clamp(Number(startThreshold.value) || 0, 0, 255);
+      const end = clamp(Number(endThreshold.value) || 0, 0, 255);
+      CHANNELS.forEach((channel) => {
+        const frames = getFrames(channel.key);
+        frames.forEach((frame, index) => {
+          const t = index / Math.max(1, frames.length - 1);
+          frame.threshold = Math.round(start + (end - start) * t);
+          if (frame.input) frame.input.value = String(frame.threshold);
+        });
+      });
+      if (shouldExtract) {
+        extractFrames();
+      }
+    }
+
+    function clearCanvas(canvas) {
+      canvas.width = sourceWidth;
+      canvas.height = sourceHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function clearAllCanvases() {
+      CHANNELS.forEach((channel) => getFrames(channel.key).forEach((frame) => clearCanvas(frame.canvas)));
+    }
+
+    function drawChannelViews() {
+      if (!sourcePixels) return;
+      CHANNELS.forEach((channel) => {
+        const canvas = document.getElementById(`${channel.key}View`);
+        canvas.width = sourceWidth;
+        canvas.height = sourceHeight;
+        const ctx = canvas.getContext("2d");
+        const image = ctx.createImageData(sourceWidth, sourceHeight);
+        for (let i = 0; i < sourcePixels.data.length; i += 4) {
+          const value = sourcePixels.data[i + channel.offset];
+          image.data[i] = value;
+          image.data[i + 1] = value;
+          image.data[i + 2] = value;
+          image.data[i + 3] = 255;
+        }
+        ctx.putImageData(image, 0, 0);
+      });
+    }
+
+    function extractFrames() {
+      if (!sourcePixels) {
+        clearAllCanvases();
+        render();
+        return;
+      }
+
+      const bg = clamp(Number(bgCutoff.value) || 0, 0, 255);
+      const soft = Math.max(0, Number(softness.value) || 0);
+      const minBlob = Math.max(0, Number(minBlobSize.value) || 0);
+      const useGreater = compareMode.value === "gte";
+
+      CHANNELS.forEach((channel) => {
+        getFrames(channel.key).forEach((frame) => {
+          frame.canvas.width = sourceWidth;
+          frame.canvas.height = sourceHeight;
+          const ctx = frame.canvas.getContext("2d");
+          const output = ctx.createImageData(sourceWidth, sourceHeight);
+          const threshold = clamp(frame.threshold, 0, 255);
+
+          for (let i = 0; i < sourcePixels.data.length; i += 4) {
+            const value = sourcePixels.data[i + channel.offset];
+            const present = value >= bg;
+            let alpha;
+
+            if (!present) {
+              alpha = 0;
+            } else if (soft <= 0) {
+              alpha = useGreater ? (value >= threshold ? 1 : 0) : (value <= threshold ? 1 : 0);
+            } else {
+              const s = smoothStep(threshold - soft, threshold + soft, value);
+              alpha = useGreater ? s : 1 - s;
+            }
+
+            const pixel = Math.round(alpha * 255);
+            output.data[i] = pixel;
+            output.data[i + 1] = pixel;
+            output.data[i + 2] = pixel;
+            output.data[i + 3] = 255;
+          }
+
+          if (minBlob > 0) {
+            removeSmallBlobs(output, sourceWidth, sourceHeight, minBlob);
+          }
+
+          ctx.putImageData(output, 0, 0);
+        });
+      });
+
+      render();
+      setStatus(`已拆解 R/G/B，各 ${angles.length} 帧`);
+    }
+
+    function removeSmallBlobs(imageData, width, height, minSize) {
+      const data = imageData.data;
+      const total = width * height;
+      const visited = new Uint8Array(total);
+      const stack = [];
+      const component = [];
+
+      for (let start = 0; start < total; start++) {
+        if (visited[start] || data[start * 4] === 0) continue;
+
+        visited[start] = 1;
+        stack.length = 0;
+        component.length = 0;
+        stack.push(start);
+
+        while (stack.length) {
+          const index = stack.pop();
+          component.push(index);
+          const x = index % width;
+          const y = Math.floor(index / width);
+
+          if (x > 0) visitNeighbor(index - 1);
+          if (x < width - 1) visitNeighbor(index + 1);
+          if (y > 0) visitNeighbor(index - width);
+          if (y < height - 1) visitNeighbor(index + width);
+        }
+
+        if (component.length < minSize) {
+          for (const pixelIndex of component) {
+            const offset = pixelIndex * 4;
+            data[offset] = 0;
+            data[offset + 1] = 0;
+            data[offset + 2] = 0;
+          }
+        }
+      }
+
+      function visitNeighbor(next) {
+        if (visited[next] || data[next * 4] === 0) return;
+        visited[next] = 1;
+        stack.push(next);
+      }
+    }
+
+    function render() {
+      const channel = currentChannelInfo();
+      const frames = getFrames();
+      const frame = frames[activeIndex] || frames[0];
+      if (!frame) return;
+
+      preview.width = sourceWidth;
+      preview.height = sourceHeight;
+      pctx.fillStyle = "#000";
+      pctx.fillRect(0, 0, preview.width, preview.height);
+      pctx.drawImage(frame.canvas, 0, 0);
+      frameTitle.textContent = `${channel.label} / ${frame.angle}°`;
+      thresholdReadout.textContent = `${channel.label} threshold ${frame.threshold}`;
+      updateChannelButtons();
+      updateThumbs();
+      updateStrip();
+    }
+
+    function updateChannelButtons() {
+      document.querySelectorAll("[data-channel]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.channel === activeChannel);
+      });
+    }
+
+    function updateThumbs() {
+      thumbs.innerHTML = "";
+      getFrames().forEach((frame, index) => {
+        const item = document.createElement("div");
+        item.className = `thumb${index === activeIndex ? " active" : ""}`;
+        const canvas = document.createElement("canvas");
+        canvas.width = sourceWidth;
+        canvas.height = sourceHeight;
+        canvas.getContext("2d").drawImage(frame.canvas, 0, 0);
+        const label = document.createElement("div");
+        label.className = "thumb-label";
+        label.innerHTML = `<span>${frame.angle}°</span><span>${frame.threshold}</span>`;
+        item.appendChild(canvas);
+        item.appendChild(label);
+        item.addEventListener("click", () => {
+          activeIndex = index;
+          render();
+        });
+        thumbs.appendChild(item);
+      });
+    }
+
+    function updateStrip() {
+      strip.innerHTML = "";
+      getFrames().forEach((frame) => {
+        const item = document.createElement("div");
+        item.className = "strip-item";
+        const canvas = document.createElement("canvas");
+        canvas.width = sourceWidth;
+        canvas.height = sourceHeight;
+        canvas.getContext("2d").drawImage(frame.canvas, 0, 0);
+        const label = document.createElement("div");
+        label.textContent = `${frame.angle}° / ${frame.threshold}`;
+        item.appendChild(canvas);
+        item.appendChild(label);
+        strip.appendChild(item);
+      });
+    }
+
+    function downloadCanvas(canvas, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    function canvasToBlob(canvas) {
+      return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    }
+
+    async function buildFrameZip(channelKeys) {
+      const entries = [];
+      for (const channelKey of channelKeys) {
+        const channel = CHANNELS.find((item) => item.key === channelKey);
+        for (const frame of getFrames(channelKey)) {
+          const blob = await canvasToBlob(frame.canvas);
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          const filename = `${channel.label}/sdf_${channel.key}_${String(frame.angle).padStart(3, "0")}.png`;
+          entries.push({ filename, bytes });
+        }
+      }
+      return createZip(entries);
+    }
+
+    function createZip(entries) {
+      const fileParts = [];
+      const centralParts = [];
+      let offset = 0;
+
+      for (const entry of entries) {
+        const nameBytes = encodeUtf8(entry.filename);
+        const crc = crc32(entry.bytes);
+        const localHeader = concatBytes(
+          u32(0x04034b50),
+          u16(20),
+          u16(0x0800),
+          u16(0),
+          u16(0),
+          u16(0),
+          u32(crc),
+          u32(entry.bytes.length),
+          u32(entry.bytes.length),
+          u16(nameBytes.length),
+          u16(0),
+          nameBytes
+        );
+        fileParts.push(localHeader, entry.bytes);
+
+        const centralHeader = concatBytes(
+          u32(0x02014b50),
+          u16(20),
+          u16(20),
+          u16(0x0800),
+          u16(0),
+          u16(0),
+          u16(0),
+          u32(crc),
+          u32(entry.bytes.length),
+          u32(entry.bytes.length),
+          u16(nameBytes.length),
+          u16(0),
+          u16(0),
+          u16(0),
+          u16(0),
+          u32(0),
+          u32(offset),
+          nameBytes
+        );
+        centralParts.push(centralHeader);
+        offset += localHeader.length + entry.bytes.length;
+      }
+
+      const centralOffset = offset;
+      const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+      const endRecord = concatBytes(
+        u32(0x06054b50),
+        u16(0),
+        u16(0),
+        u16(entries.length),
+        u16(entries.length),
+        u32(centralSize),
+        u32(centralOffset),
+        u16(0)
+      );
+
+      return new Blob([...fileParts, ...centralParts, endRecord], { type: "application/zip" });
+    }
+
+    function encodeUtf8(text) {
+      return new TextEncoder().encode(text);
+    }
+
+    function u16(value) {
+      const bytes = new Uint8Array(2);
+      bytes[0] = value & 255;
+      bytes[1] = (value >>> 8) & 255;
+      return bytes;
+    }
+
+    function u32(value) {
+      const bytes = new Uint8Array(4);
+      bytes[0] = value & 255;
+      bytes[1] = (value >>> 8) & 255;
+      bytes[2] = (value >>> 16) & 255;
+      bytes[3] = (value >>> 24) & 255;
+      return bytes;
+    }
+
+    function concatBytes(...parts) {
+      const length = parts.reduce((sum, part) => sum + part.length, 0);
+      const out = new Uint8Array(length);
+      let offset = 0;
+      for (const part of parts) {
+        out.set(part, offset);
+        offset += part.length;
+      }
+      return out;
+    }
+
+    const crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+          c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        table[n] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32(bytes) {
+      let crc = 0xffffffff;
+      for (let i = 0; i < bytes.length; i++) {
+        crc = crcTable[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function buildStrip(channelKey) {
+      const frames = getFrames(channelKey);
+      const stripCanvas = document.createElement("canvas");
+      stripCanvas.width = sourceWidth * frames.length;
+      stripCanvas.height = sourceHeight;
+      const ctx = stripCanvas.getContext("2d");
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
+      frames.forEach((frame, index) => {
+        ctx.drawImage(frame.canvas, index * sourceWidth, 0);
+      });
+      return stripCanvas;
+    }
+
+    function buildAtlas(channelKeys) {
+      const gap = 16;
+      const labelHeight = 42;
+      const rowGap = 28;
+      const frameCount = angles.length;
+      const atlas = document.createElement("canvas");
+      atlas.width = frameCount * sourceWidth + (frameCount - 1) * gap;
+      atlas.height = channelKeys.length * (sourceHeight + labelHeight) + (channelKeys.length - 1) * rowGap;
+      const ctx = atlas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, atlas.width, atlas.height);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `${Math.max(16, Math.round(sourceWidth / 32))}px Segoe UI, Arial`;
+      ctx.fillStyle = "#111";
+
+      channelKeys.forEach((channelKey, rowIndex) => {
+        const channel = CHANNELS.find((item) => item.key === channelKey);
+        const y = rowIndex * (sourceHeight + labelHeight + rowGap);
+        getFrames(channelKey).forEach((frame, index) => {
+          const x = index * (sourceWidth + gap);
+          ctx.drawImage(frame.canvas, x, y);
+          ctx.fillText(`${channel.label} / ${frame.angle}° / ${frame.threshold}`, x + sourceWidth / 2, y + sourceHeight + labelHeight / 2);
+        });
+      });
+
+      return atlas;
+    }
+
+    function saveCurrentFrame() {
+      const frame = getFrames()[activeIndex];
+      const channel = currentChannelInfo();
+      downloadCanvas(frame.canvas, `sdf_${channel.key}_${String(frame.angle).padStart(3, "0")}.png`);
+      setStatus(`已导出 ${channel.label} ${frame.angle}°`);
+    }
+
+    function saveCurrentStrip() {
+      downloadCanvas(buildStrip(activeChannel), `sdf_${activeChannel}_strip_${angleStep.value}deg.png`);
+      setStatus(`已导出 ${currentChannelInfo().label} Strip`);
+    }
+
+    function saveCurrentAtlas() {
+      downloadCanvas(buildAtlas([activeChannel]), `sdf_${activeChannel}_atlas_${angleStep.value}deg.png`);
+      setStatus(`已导出 ${currentChannelInfo().label} Atlas`);
+    }
+
+    function saveAllAtlas() {
+      downloadCanvas(buildAtlas(CHANNELS.map((channel) => channel.key)), `sdf_rgb_atlas_${angleStep.value}deg.png`);
+      setStatus("已导出三通道总览");
+    }
+
+    async function saveCurrentGroup() {
+      setStatus("正在打包当前通道帧组");
+      const zip = await buildFrameZip([activeChannel]);
+      downloadBlob(zip, `sdf_${activeChannel}_frames_${angleStep.value}deg.zip`);
+      setStatus(`已导出 ${currentChannelInfo().label} 帧组`);
+    }
+
+    async function saveAllGroups() {
+      setStatus("正在打包三通道帧组");
+      const zip = await buildFrameZip(CHANNELS.map((channel) => channel.key));
+      downloadBlob(zip, `sdf_rgb_frames_${angleStep.value}deg.zip`);
+      setStatus("已导出三通道帧组");
+    }
+
+    document.getElementById("sdfInput").addEventListener("change", (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const image = new Image();
+      image.onload = () => {
+        sourceWidth = image.naturalWidth;
+        sourceHeight = image.naturalHeight;
+        sourceCanvas = document.createElement("canvas");
+        sourceCanvas.width = sourceWidth;
+        sourceCanvas.height = sourceHeight;
+        const ctx = sourceCanvas.getContext("2d");
+        ctx.drawImage(image, 0, 0);
+        sourcePixels = ctx.getImageData(0, 0, sourceWidth, sourceHeight);
+        sourceInfo.textContent = `${file.name} / ${sourceWidth} x ${sourceHeight}`;
+        drawChannelViews();
+        extractFrames();
+        setStatus("SDF 已导入并拆解");
+      };
+      image.src = URL.createObjectURL(file);
+    });
+
+    document.querySelectorAll("[data-channel]").forEach((button) => {
+      button.addEventListener("click", () => {
+        activeChannel = button.dataset.channel;
+        activeIndex = Math.min(activeIndex, getFrames().length - 1);
+        createThresholdInputs();
+        render();
+      });
+    });
+
+    angleStep.addEventListener("change", () => {
+      createFrameSet();
+      extractFrames();
+    });
+
+    document.getElementById("fillThresholdsBtn").addEventListener("click", () => fillThresholds(true));
+    document.getElementById("extractBtn").addEventListener("click", extractFrames);
+    document.getElementById("saveFrameBtn").addEventListener("click", saveCurrentFrame);
+    document.getElementById("saveGroupBtn").addEventListener("click", saveCurrentGroup);
+    document.getElementById("saveAllGroupsBtn").addEventListener("click", saveAllGroups);
+    document.getElementById("saveAllAtlasBtn").addEventListener("click", saveAllAtlas);
+
+    [compareMode, bgCutoff, softness, minBlobSize].forEach((input) => input.addEventListener("input", extractFrames));
+    [startThreshold, endThreshold].forEach((input) => input.addEventListener("input", () => fillThresholds(true)));
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "[" && activeIndex > 0) {
+        activeIndex--;
+        render();
+      }
+      if (event.key === "]" && activeIndex < getFrames().length - 1) {
+        activeIndex++;
+        render();
+      }
+      const key = event.key.toLowerCase();
+      if (key === "r" || key === "g" || key === "b") {
+        activeChannel = key;
+        activeIndex = Math.min(activeIndex, getFrames().length - 1);
+        createThresholdInputs();
+        render();
+      }
+    });
+
+    createFrameSet();
+    render();
+  </script>
+</body>
+</html>

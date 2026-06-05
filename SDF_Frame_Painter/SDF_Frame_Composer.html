@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDF Frame Composer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f2;
+      --panel: #ffffff;
+      --line: #d0d0ca;
+      --text: #20201d;
+      --muted: #66665f;
+      --accent: #1c777a;
+      --accent-dark: #115b5d;
+      --warn: #9a4b25;
+      --tool: #eeeeea;
+      --ok: #2d7255;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 330px minmax(760px, 1fr);
+    }
+
+    aside {
+      padding: 18px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: auto;
+    }
+
+    main {
+      min-width: 0;
+      padding: 18px 22px 24px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .group {
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .row {
+      margin: 9px 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .row input,
+    .row select {
+      width: 118px;
+      min-width: 0;
+      padding: 5px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button,
+    .file-button {
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--tool);
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    button:hover,
+    .file-button:hover { border-color: #9a9a92; }
+
+    button.primary,
+    .file-button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover,
+    .file-button.primary:hover { background: var(--accent-dark); }
+
+    button.warn {
+      background: #f0e5de;
+      border-color: #d3b19d;
+      color: var(--warn);
+    }
+
+    input[type="file"] { display: none; }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .segmented button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .thresholds {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      max-height: 230px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .threshold {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .threshold input {
+      min-width: 0;
+      width: 100%;
+      padding: 5px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .status {
+      min-width: 260px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) 280px;
+      gap: 16px;
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .stage-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .canvas-shell {
+      min-height: 0;
+      padding: 20px;
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      border-radius: 6px;
+      background:
+        linear-gradient(45deg, #deded8 25%, transparent 25%),
+        linear-gradient(-45deg, #deded8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #deded8 75%),
+        linear-gradient(-45deg, transparent 75%, #deded8 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+
+    #preview {
+      width: min(72vh, 680px);
+      height: min(72vh, 680px);
+      background: #000;
+      image-rendering: pixelated;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .thumbs {
+      padding: 12px;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .thumb {
+      padding: 7px;
+      border: 2px solid transparent;
+      border-radius: 7px;
+      background: #f8f8f5;
+      cursor: pointer;
+    }
+
+    .thumb.active {
+      border-color: var(--accent);
+      background: #edf6f6;
+    }
+
+    .thumb.loaded .thumb-name::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 5px;
+      border-radius: 50%;
+      background: var(--ok);
+      vertical-align: 1px;
+    }
+
+    .thumb canvas,
+    .strip-item canvas,
+    .channel canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid #222;
+      background: #000;
+      image-rendering: pixelated;
+    }
+
+    .thumb-label {
+      margin-top: 5px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .thumb-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .strip {
+      padding: 12px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .strip-inner {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 136px;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .strip-item div,
+    .channel div {
+      margin-top: 5px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .channels {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .workspace { grid-template-columns: 1fr; }
+      .thumbs { grid-template-columns: repeat(4, minmax(120px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div>
+        <h1>SDF 帧合成</h1>
+        <p class="hint">把 R/G/B 的角度帧按阈值插值重新合成为三通道 SDF。</p>
+      </div>
+
+      <div class="group">
+        <h2>当前通道</h2>
+        <div class="segmented">
+          <button id="channelRBtn" class="active" data-channel="r">R</button>
+          <button id="channelGBtn" data-channel="g">G</button>
+          <button id="channelBBtn" data-channel="b">B</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>角度与阈值</h2>
+        <label class="row">
+          <span>步长</span>
+          <select id="angleStep">
+            <option value="30" selected>30° / 7 帧</option>
+            <option value="20">20° / 10 帧</option>
+            <option value="15">15° / 13 帧</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>0° 阈值</span>
+          <input id="startThreshold" type="number" min="0" max="255" value="255">
+        </label>
+        <label class="row">
+          <span>180° 阈值</span>
+          <input id="endThreshold" type="number" min="0" max="255" value="1">
+        </label>
+        <label class="row">
+          <span>判定方式</span>
+          <select id="compareMode">
+            <option value="gte" selected>值 >= 阈值</option>
+            <option value="lte">值 <= 阈值</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>重建平滑</span>
+          <input id="smoothPasses" type="number" min="0" max="8" value="3">
+        </label>
+        <div class="buttons">
+          <button id="fillThresholdsBtn">重算阈值</button>
+          <button id="resetBtn" class="warn">重置帧位</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>导入</h2>
+        <div class="buttons">
+          <label class="file-button primary" for="folderInput">导入帧文件夹</label>
+          <label class="file-button" for="framesInput">导入当前通道</label>
+          <label class="file-button" for="stripInput">导入当前 Strip</label>
+          <button id="clearChannelBtn">清空当前通道</button>
+        </div>
+        <input id="folderInput" type="file" accept="image/*" multiple webkitdirectory directory>
+        <input id="framesInput" type="file" accept="image/*" multiple>
+        <input id="stripInput" type="file" accept="image/*">
+      </div>
+
+      <div class="group">
+        <h2>当前通道阈值</h2>
+        <div id="thresholds" class="thresholds"></div>
+      </div>
+
+      <div class="group">
+        <h2>导出</h2>
+        <div class="buttons">
+          <button id="composeBtn" class="primary">合成 SDF</button>
+          <button id="savePngBtn">保存 PNG</button>
+          <button id="saveTgaBtn">保存 TGA</button>
+          <button id="saveChannelBtn">保存当前通道</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>合成通道预览</h2>
+        <div class="channels">
+          <div class="channel"><canvas id="rView" width="128" height="128"></canvas><div>R</div></div>
+          <div class="channel"><canvas id="gView" width="128" height="128"></canvas><div>G</div></div>
+          <div class="channel"><canvas id="bView" width="128" height="128"></canvas><div>B</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <strong id="frameTitle">R / 0°</strong>
+          <span class="hint" id="outputInfo">512 x 512</span>
+        </div>
+        <div id="status" class="status">等待导入帧</div>
+      </div>
+
+      <section class="workspace">
+        <div class="stage-wrap">
+          <div class="stage-title">
+            <span>合成预览</span>
+            <span id="loadedReadout">0 / 7</span>
+          </div>
+          <div class="canvas-shell">
+            <canvas id="preview" width="512" height="512"></canvas>
+          </div>
+        </div>
+
+        <div id="thumbs" class="thumbs"></div>
+      </section>
+
+      <section class="strip">
+        <div id="strip" class="strip-inner"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CHANNELS = [
+      { key: "r", label: "R", offset: 0 },
+      { key: "g", label: "G", offset: 1 },
+      { key: "b", label: "B", offset: 2 }
+    ];
+
+    const preview = document.getElementById("preview");
+    const pctx = preview.getContext("2d", { willReadFrequently: true });
+    const thumbs = document.getElementById("thumbs");
+    const strip = document.getElementById("strip");
+    const statusEl = document.getElementById("status");
+    const frameTitle = document.getElementById("frameTitle");
+    const outputInfo = document.getElementById("outputInfo");
+    const loadedReadout = document.getElementById("loadedReadout");
+    const thresholdsEl = document.getElementById("thresholds");
+    const angleStep = document.getElementById("angleStep");
+    const compareMode = document.getElementById("compareMode");
+    const smoothPasses = document.getElementById("smoothPasses");
+    const startThreshold = document.getElementById("startThreshold");
+    const endThreshold = document.getElementById("endThreshold");
+
+    let activeChannel = "r";
+    let activeIndex = 0;
+    let angles = [];
+    let framesByChannel = {};
+    let outputWidth = 512;
+    let outputHeight = 512;
+    let outputCanvas = document.createElement("canvas");
+    let outputImage = null;
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function buildAngles() {
+      const step = Number(angleStep.value) || 30;
+      const nextAngles = [];
+      for (let angle = 0; angle <= 180; angle += step) {
+        nextAngles.push(angle);
+      }
+      if (nextAngles[nextAngles.length - 1] !== 180) {
+        nextAngles.push(180);
+      }
+      angles = nextAngles;
+      activeIndex = Math.min(activeIndex, angles.length - 1);
+    }
+
+    function createFrameSet() {
+      buildAngles();
+      framesByChannel = {};
+      CHANNELS.forEach((channel) => {
+        framesByChannel[channel.key] = angles.map((angle) => ({
+          angle,
+          threshold: 0,
+          canvas: document.createElement("canvas"),
+          imageData: null,
+          fileName: ""
+        }));
+      });
+      fillThresholds(false);
+      createThresholdInputs();
+      composeSdf(false);
+      render();
+    }
+
+    function getFrames(channelKey = activeChannel) {
+      return framesByChannel[channelKey] || [];
+    }
+
+    function currentChannelInfo() {
+      return CHANNELS.find((channel) => channel.key === activeChannel) || CHANNELS[0];
+    }
+
+    function createThresholdInputs() {
+      thresholdsEl.innerHTML = "";
+      getFrames().forEach((frame) => {
+        const label = document.createElement("label");
+        label.className = "threshold";
+        const span = document.createElement("span");
+        span.textContent = `${frame.angle}°`;
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.max = "255";
+        input.value = String(frame.threshold);
+        input.addEventListener("input", () => {
+          frame.threshold = clamp(Number(input.value) || 0, 0, 255);
+          composeSdf(true);
+        });
+        label.appendChild(span);
+        label.appendChild(input);
+        thresholdsEl.appendChild(label);
+      });
+    }
+
+    function fillThresholds(shouldCompose = true) {
+      const start = clamp(Number(startThreshold.value) || 0, 0, 255);
+      const end = clamp(Number(endThreshold.value) || 0, 0, 255);
+      CHANNELS.forEach((channel) => {
+        const frames = getFrames(channel.key);
+        frames.forEach((frame, index) => {
+          const t = index / Math.max(1, frames.length - 1);
+          frame.threshold = Math.round(start + (end - start) * t);
+        });
+      });
+      createThresholdInputs();
+      if (shouldCompose) {
+        composeSdf(true);
+      }
+    }
+
+    function ensureFrameCanvas(frame) {
+      frame.canvas.width = outputWidth;
+      frame.canvas.height = outputHeight;
+      const ctx = frame.canvas.getContext("2d");
+      if (!frame.imageData) {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, outputWidth, outputHeight);
+      } else {
+        ctx.putImageData(frame.imageData, 0, 0);
+      }
+    }
+
+    function setOutputSize(width, height) {
+      if (outputWidth === width && outputHeight === height) {
+        return;
+      }
+
+      outputWidth = width;
+      outputHeight = height;
+      outputCanvas.width = outputWidth;
+      outputCanvas.height = outputHeight;
+      preview.width = outputWidth;
+      preview.height = outputHeight;
+      outputInfo.textContent = `${outputWidth} x ${outputHeight}`;
+
+      CHANNELS.forEach((channel) => {
+        getFrames(channel.key).forEach((frame) => {
+          frame.canvas.width = outputWidth;
+          frame.canvas.height = outputHeight;
+          frame.imageData = null;
+          frame.fileName = "";
+        });
+      });
+    }
+
+    function parseChannel(file) {
+      const text = `${file.webkitRelativePath || ""}/${file.name}`.toLowerCase();
+      if (/(^|[\\/_-])r([\\/_-]|$)/.test(text) || /channel[_-]?r/.test(text) || /sdf[_-]?r/.test(text)) return "r";
+      if (/(^|[\\/_-])g([\\/_-]|$)/.test(text) || /channel[_-]?g/.test(text) || /sdf[_-]?g/.test(text)) return "g";
+      if (/(^|[\\/_-])b([\\/_-]|$)/.test(text) || /channel[_-]?b/.test(text) || /sdf[_-]?b/.test(text)) return "b";
+      return "";
+    }
+
+    function parseAngle(file) {
+      const text = `${file.webkitRelativePath || ""}/${file.name}`;
+      const matches = [...text.matchAll(/(?:^|\\D)(180|1[0-7]\\d|0?\\d?\\d)(?=\\D|$)/g)]
+        .map((match) => Number(match[1]))
+        .filter((value) => value >= 0 && value <= 180);
+      return matches.length ? matches[matches.length - 1] : null;
+    }
+
+    function findSlot(channelKey, angle, fallbackIndex) {
+      const frames = getFrames(channelKey);
+      if (angle !== null) {
+        const exact = frames.find((frame) => frame.angle === angle);
+        if (exact) return exact;
+        let closest = frames[0];
+        let best = Infinity;
+        frames.forEach((frame) => {
+          const distance = Math.abs(frame.angle - angle);
+          if (distance < best) {
+            best = distance;
+            closest = frame;
+          }
+        });
+        return closest;
+      }
+      return frames[fallbackIndex % frames.length];
+    }
+
+    function readImage(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const url = URL.createObjectURL(file);
+        image.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error(`Could not load image: ${file.name}`));
+        };
+        image.src = url;
+      });
+    }
+
+    async function loadFrameFiles(files, forcedChannel = "") {
+      const imageFiles = [...files].filter((file) => file.type.startsWith("image/"));
+      imageFiles.sort((a, b) => {
+        const pathA = a.webkitRelativePath || a.name;
+        const pathB = b.webkitRelativePath || b.name;
+        return pathA.localeCompare(pathB, undefined, { numeric: true });
+      });
+
+      if (!imageFiles.length) {
+        setStatus("没有可导入的图片");
+        return;
+      }
+
+      let loaded = 0;
+      const fallbackIndexByChannel = { r: 0, g: 0, b: 0 };
+
+      for (const file of imageFiles) {
+        const channelKey = forcedChannel || parseChannel(file);
+        if (!channelKey || !framesByChannel[channelKey]) {
+          continue;
+        }
+
+        const image = await readImage(file);
+        if (!loaded && outputWidth === 512 && outputHeight === 512 && !hasAnyLoadedFrame()) {
+          setOutputSize(image.naturalWidth, image.naturalHeight);
+        }
+
+        const angle = parseAngle(file);
+        const slot = findSlot(channelKey, angle, fallbackIndexByChannel[channelKey]);
+        fallbackIndexByChannel[channelKey]++;
+        drawImageIntoSlot(slot, image, file.name);
+        loaded++;
+      }
+
+      composeSdf(true);
+      setStatus(`已导入 ${loaded} 张帧图`);
+    }
+
+    function drawImageIntoSlot(slot, image, fileName) {
+      slot.canvas.width = outputWidth;
+      slot.canvas.height = outputHeight;
+      const ctx = slot.canvas.getContext("2d", { willReadFrequently: true });
+      ctx.clearRect(0, 0, outputWidth, outputHeight);
+      ctx.drawImage(image, 0, 0, outputWidth, outputHeight);
+      slot.imageData = ctx.getImageData(0, 0, outputWidth, outputHeight);
+      slot.fileName = fileName;
+    }
+
+    async function loadStrip(file) {
+      if (!file) return;
+      const image = await readImage(file);
+      const frames = getFrames();
+      const frameCount = frames.length;
+      const frameWidth = Math.round(image.naturalWidth / frameCount);
+      const frameHeight = image.naturalHeight;
+
+      setOutputSize(frameWidth, frameHeight);
+
+      const source = document.createElement("canvas");
+      source.width = image.naturalWidth;
+      source.height = image.naturalHeight;
+      const sourceCtx = source.getContext("2d");
+      sourceCtx.drawImage(image, 0, 0);
+
+      frames.forEach((frame, index) => {
+        frame.canvas.width = outputWidth;
+        frame.canvas.height = outputHeight;
+        const ctx = frame.canvas.getContext("2d", { willReadFrequently: true });
+        ctx.clearRect(0, 0, outputWidth, outputHeight);
+        ctx.drawImage(source, index * frameWidth, 0, frameWidth, frameHeight, 0, 0, outputWidth, outputHeight);
+        frame.imageData = ctx.getImageData(0, 0, outputWidth, outputHeight);
+        frame.fileName = `${file.name} #${index + 1}`;
+      });
+
+      composeSdf(true);
+      setStatus(`已导入 ${currentChannelInfo().label} Strip`);
+    }
+
+    function hasAnyLoadedFrame() {
+      return CHANNELS.some((channel) => getFrames(channel.key).some((frame) => frame.imageData));
+    }
+
+    function framePixelValue(data, offset) {
+      const r = data[offset];
+      const g = data[offset + 1];
+      const b = data[offset + 2];
+      const a = data[offset + 3] / 255;
+      return clamp(Math.round(((r * 0.299) + (g * 0.587) + (b * 0.114)) * a), 0, 255);
+    }
+
+    function buildFrameSamples(frames, total) {
+      return frames.map((item) => {
+        const alpha = new Uint8Array(total);
+        const mask = new Uint8Array(total);
+        const data = item.frame.imageData.data;
+        for (let p = 0, i = 0; p < total; p++, i += 4) {
+          const value = framePixelValue(data, i);
+          alpha[p] = value;
+          mask[p] = value >= 128 ? 1 : 0;
+        }
+        return {
+          threshold: item.threshold,
+          alpha,
+          mask,
+          distOn: null,
+          distOff: null
+        };
+      });
+    }
+
+    function distanceToMask(mask, sourceIsOn) {
+      const total = outputWidth * outputHeight;
+      const dist = new Float32Array(total);
+      const inf = 1e9;
+      const diagonal = Math.SQRT2;
+
+      for (let i = 0; i < total; i++) {
+        const isSource = sourceIsOn ? mask[i] : !mask[i];
+        dist[i] = isSource ? 0 : inf;
+      }
+
+      for (let y = 0; y < outputHeight; y++) {
+        for (let x = 0; x < outputWidth; x++) {
+          const p = y * outputWidth + x;
+          let best = dist[p];
+          if (x > 0) best = Math.min(best, dist[p - 1] + 1);
+          if (y > 0) {
+            best = Math.min(best, dist[p - outputWidth] + 1);
+            if (x > 0) best = Math.min(best, dist[p - outputWidth - 1] + diagonal);
+            if (x + 1 < outputWidth) best = Math.min(best, dist[p - outputWidth + 1] + diagonal);
+          }
+          dist[p] = best;
+        }
+      }
+
+      for (let y = outputHeight - 1; y >= 0; y--) {
+        for (let x = outputWidth - 1; x >= 0; x--) {
+          const p = y * outputWidth + x;
+          let best = dist[p];
+          if (x + 1 < outputWidth) best = Math.min(best, dist[p + 1] + 1);
+          if (y + 1 < outputHeight) {
+            best = Math.min(best, dist[p + outputWidth] + 1);
+            if (x + 1 < outputWidth) best = Math.min(best, dist[p + outputWidth + 1] + diagonal);
+            if (x > 0) best = Math.min(best, dist[p + outputWidth - 1] + diagonal);
+          }
+          dist[p] = best;
+        }
+      }
+
+      return dist;
+    }
+
+    function getDistance(sample, sourceIsOn) {
+      if (sourceIsOn) {
+        sample.distOn = sample.distOn || distanceToMask(sample.mask, true);
+        return sample.distOn;
+      }
+      sample.distOff = sample.distOff || distanceToMask(sample.mask, false);
+      return sample.distOff;
+    }
+
+    function composeByThresholdArea(samples, useGreater, total) {
+      const out = new Float32Array(total);
+
+      for (let p = 0; p < total; p++) {
+        let area = 0;
+        let previousThreshold = 0;
+        let previousPresence = 1;
+
+        for (const sample of samples) {
+          const threshold = sample.threshold;
+          if (threshold < previousThreshold) continue;
+
+          const alpha = sample.alpha[p] / 255;
+          const presence = useGreater ? alpha : 1 - alpha;
+          const span = threshold - previousThreshold;
+
+          if (span > 0) {
+            area += span * (previousPresence + presence) * 0.5;
+          }
+
+          previousThreshold = threshold;
+          previousPresence = presence;
+        }
+
+        if (previousThreshold < 255) {
+          area += (255 - previousThreshold) * previousPresence * 0.5;
+        }
+
+        out[p] = clamp(area, 0, 255);
+      }
+
+      return out;
+    }
+
+    function addDistanceInterpolation(values, samples, useGreater, total) {
+      if (samples.length < 2) {
+        return values;
+      }
+
+      for (let index = 0; index < samples.length - 1; index++) {
+        const low = samples[index];
+        const high = samples[index + 1];
+        const span = high.threshold - low.threshold;
+        if (span <= 0) continue;
+
+        const lowDistance = useGreater ? getDistance(low, false) : getDistance(low, true);
+        const highDistance = useGreater ? getDistance(high, true) : getDistance(high, false);
+
+        for (let p = 0; p < total; p++) {
+          const inBand = useGreater
+            ? low.mask[p] && !high.mask[p]
+            : !low.mask[p] && high.mask[p];
+
+          if (!inBand) continue;
+
+          const d0 = lowDistance[p];
+          const d1 = highDistance[p];
+          const ratio = d0 + d1 > 0 && d0 < 1e8 && d1 < 1e8 ? d0 / (d0 + d1) : 0.5;
+          values[p] = low.threshold + span * ratio;
+        }
+      }
+
+      return values;
+    }
+
+    function smoothChannelValues(values, passes) {
+      const count = clamp(Math.round(passes), 0, 8);
+      if (count <= 0) {
+        return values;
+      }
+
+      let current = Uint8ClampedArray.from(values, (value) => clamp(Math.round(value), 0, 255));
+      const total = outputWidth * outputHeight;
+
+      for (let pass = 0; pass < count; pass++) {
+        const next = new Uint8ClampedArray(total);
+        for (let y = 0; y < outputHeight; y++) {
+          for (let x = 0; x < outputWidth; x++) {
+            const p = y * outputWidth + x;
+            const center = current[p];
+
+            if (center <= 0 || center >= 255) {
+              next[p] = center;
+              continue;
+            }
+
+            let sum = center * 4;
+            let weight = 4;
+
+            for (let oy = -1; oy <= 1; oy++) {
+              const yy = y + oy;
+              if (yy < 0 || yy >= outputHeight) continue;
+              for (let ox = -1; ox <= 1; ox++) {
+                if (ox === 0 && oy === 0) continue;
+                const xx = x + ox;
+                if (xx < 0 || xx >= outputWidth) continue;
+
+                const value = current[yy * outputWidth + xx];
+                const diff = Math.abs(value - center);
+                const spatial = ox === 0 || oy === 0 ? 2 : 1;
+                const range = 1 / (1 + (diff / 72) * (diff / 72));
+                const w = spatial * range;
+                sum += value * w;
+                weight += w;
+              }
+            }
+
+            next[p] = clamp(Math.round(sum / weight), 0, 255);
+          }
+        }
+        current = next;
+      }
+
+      return current;
+    }
+
+    function composeChannel(channelKey) {
+      const total = outputWidth * outputHeight;
+      const frames = getFrames(channelKey)
+        .filter((frame) => frame.imageData)
+        .map((frame) => ({
+          frame,
+          threshold: clamp(frame.threshold, 0, 255)
+        }))
+        .sort((a, b) => a.threshold - b.threshold);
+      const useGreater = compareMode.value === "gte";
+
+      if (!frames.length) {
+        return new Uint8ClampedArray(total);
+      }
+
+      const samples = buildFrameSamples(frames, total);
+      const reconstructed = composeByThresholdArea(samples, useGreater, total);
+      addDistanceInterpolation(reconstructed, samples, useGreater, total);
+      return smoothChannelValues(reconstructed, Number(smoothPasses.value) || 0);
+    }
+
+    function composeSdf(shouldRender = true) {
+      outputCanvas.width = outputWidth;
+      outputCanvas.height = outputHeight;
+      const ctx = outputCanvas.getContext("2d", { willReadFrequently: true });
+      outputImage = ctx.createImageData(outputWidth, outputHeight);
+      const composed = {
+        r: composeChannel("r"),
+        g: composeChannel("g"),
+        b: composeChannel("b")
+      };
+
+      for (let p = 0, i = 0; p < outputWidth * outputHeight; p++, i += 4) {
+        outputImage.data[i] = composed.r[p];
+        outputImage.data[i + 1] = composed.g[p];
+        outputImage.data[i + 2] = composed.b[p];
+        outputImage.data[i + 3] = 255;
+      }
+
+      ctx.putImageData(outputImage, 0, 0);
+      drawChannelViews(composed);
+
+      if (shouldRender) {
+        render();
+        setStatus("SDF 已按阈值插值合成");
+      }
+    }
+
+    function drawChannelViews(composed) {
+      CHANNELS.forEach((channel) => {
+        const canvas = document.getElementById(`${channel.key}View`);
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        const ctx = canvas.getContext("2d");
+        const image = ctx.createImageData(outputWidth, outputHeight);
+        const values = composed ? composed[channel.key] : new Uint8ClampedArray(outputWidth * outputHeight);
+
+        for (let p = 0, i = 0; p < values.length; p++, i += 4) {
+          const value = values[p];
+          image.data[i] = value;
+          image.data[i + 1] = value;
+          image.data[i + 2] = value;
+          image.data[i + 3] = 255;
+        }
+
+        ctx.putImageData(image, 0, 0);
+      });
+    }
+
+    function loadedCount(channelKey = activeChannel) {
+      return getFrames(channelKey).filter((frame) => frame.imageData).length;
+    }
+
+    function render() {
+      const channel = currentChannelInfo();
+      const frames = getFrames();
+      const frame = frames[activeIndex] || frames[0];
+
+      preview.width = outputWidth;
+      preview.height = outputHeight;
+      pctx.fillStyle = "#000";
+      pctx.fillRect(0, 0, outputWidth, outputHeight);
+
+      if (outputImage) {
+        pctx.putImageData(outputImage, 0, 0);
+      }
+
+      frameTitle.textContent = `${channel.label} / ${frame ? frame.angle : 0}°`;
+      loadedReadout.textContent = `${loadedCount()} / ${frames.length}`;
+      updateChannelButtons();
+      updateThumbs();
+      updateStrip();
+    }
+
+    function updateChannelButtons() {
+      document.querySelectorAll("[data-channel]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.channel === activeChannel);
+      });
+    }
+
+    function updateThumbs() {
+      thumbs.innerHTML = "";
+      getFrames().forEach((frame, index) => {
+        ensureFrameCanvas(frame);
+        const item = document.createElement("div");
+        item.className = `thumb${index === activeIndex ? " active" : ""}${frame.imageData ? " loaded" : ""}`;
+        const canvas = document.createElement("canvas");
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        canvas.getContext("2d").drawImage(frame.canvas, 0, 0);
+        const label = document.createElement("div");
+        label.className = "thumb-label";
+        label.innerHTML = `<span class="thumb-name">${frame.fileName || "空帧"}</span><span>${frame.angle}° / ${frame.threshold}</span>`;
+        item.appendChild(canvas);
+        item.appendChild(label);
+        item.addEventListener("click", () => {
+          activeIndex = index;
+          render();
+        });
+        thumbs.appendChild(item);
+      });
+    }
+
+    function updateStrip() {
+      strip.innerHTML = "";
+      getFrames().forEach((frame) => {
+        ensureFrameCanvas(frame);
+        const item = document.createElement("div");
+        item.className = "strip-item";
+        const canvas = document.createElement("canvas");
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        canvas.getContext("2d").drawImage(frame.canvas, 0, 0);
+        const label = document.createElement("div");
+        label.textContent = `${frame.angle}° / ${frame.threshold}`;
+        item.appendChild(canvas);
+        item.appendChild(label);
+        strip.appendChild(item);
+      });
+    }
+
+    function clearChannel(channelKey = activeChannel) {
+      getFrames(channelKey).forEach((frame) => {
+        frame.imageData = null;
+        frame.fileName = "";
+      });
+      composeSdf(true);
+    }
+
+    function downloadCanvas(canvas, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    function buildChannelCanvas(channelKey) {
+      const ctx = outputCanvas.getContext("2d", { willReadFrequently: true });
+      const image = ctx.getImageData(0, 0, outputWidth, outputHeight);
+      const channel = CHANNELS.find((item) => item.key === channelKey);
+      const canvas = document.createElement("canvas");
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+      const outCtx = canvas.getContext("2d");
+      const out = outCtx.createImageData(outputWidth, outputHeight);
+
+      for (let i = 0; i < image.data.length; i += 4) {
+        const value = image.data[i + channel.offset];
+        out.data[i] = value;
+        out.data[i + 1] = value;
+        out.data[i + 2] = value;
+        out.data[i + 3] = 255;
+      }
+
+      outCtx.putImageData(out, 0, 0);
+      return canvas;
+    }
+
+    function buildTgaBlob(canvas) {
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const header = new Uint8Array(18);
+      header[2] = 2;
+      header[12] = canvas.width & 255;
+      header[13] = (canvas.width >> 8) & 255;
+      header[14] = canvas.height & 255;
+      header[15] = (canvas.height >> 8) & 255;
+      header[16] = 32;
+      header[17] = 40;
+
+      const pixels = new Uint8Array(canvas.width * canvas.height * 4);
+      for (let source = 0, target = 0; source < image.data.length; source += 4, target += 4) {
+        pixels[target] = image.data[source + 2];
+        pixels[target + 1] = image.data[source + 1];
+        pixels[target + 2] = image.data[source];
+        pixels[target + 3] = image.data[source + 3];
+      }
+
+      return new Blob([header, pixels], { type: "image/x-tga" });
+    }
+
+    document.getElementById("folderInput").addEventListener("change", (event) => {
+      loadFrameFiles(event.target.files, "");
+      event.target.value = "";
+    });
+
+    document.getElementById("framesInput").addEventListener("change", (event) => {
+      loadFrameFiles(event.target.files, activeChannel);
+      event.target.value = "";
+    });
+
+    document.getElementById("stripInput").addEventListener("change", (event) => {
+      const file = event.target.files && event.target.files[0];
+      loadStrip(file);
+      event.target.value = "";
+    });
+
+    document.querySelectorAll("[data-channel]").forEach((button) => {
+      button.addEventListener("click", () => {
+        activeChannel = button.dataset.channel;
+        activeIndex = Math.min(activeIndex, getFrames().length - 1);
+        createThresholdInputs();
+        render();
+      });
+    });
+
+    angleStep.addEventListener("change", createFrameSet);
+    compareMode.addEventListener("change", () => composeSdf(true));
+    smoothPasses.addEventListener("input", () => composeSdf(true));
+    startThreshold.addEventListener("input", () => fillThresholds(true));
+    endThreshold.addEventListener("input", () => fillThresholds(true));
+
+    document.getElementById("fillThresholdsBtn").addEventListener("click", () => fillThresholds(true));
+    document.getElementById("resetBtn").addEventListener("click", createFrameSet);
+    document.getElementById("clearChannelBtn").addEventListener("click", () => clearChannel(activeChannel));
+    document.getElementById("composeBtn").addEventListener("click", () => composeSdf(true));
+    document.getElementById("savePngBtn").addEventListener("click", () => downloadCanvas(outputCanvas, `sdf_composed_${angleStep.value}deg.png`));
+    document.getElementById("saveTgaBtn").addEventListener("click", () => downloadBlob(buildTgaBlob(outputCanvas), `sdf_composed_${angleStep.value}deg.tga`));
+    document.getElementById("saveChannelBtn").addEventListener("click", () => {
+      downloadCanvas(buildChannelCanvas(activeChannel), `sdf_${activeChannel}_composed_${angleStep.value}deg.png`);
+    });
+
+    createFrameSet();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDF RGBA Packer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f4f0;
+      --panel: #ffffff;
+      --line: #d0d0ca;
+      --text: #20201d;
+      --muted: #66665f;
+      --accent: #1c777a;
+      --accent-dark: #115b5d;
+      --tool: #eeeeea;
+      --warn: #9a4b25;
+      --ok: #2d7255;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 350px minmax(760px, 1fr);
+    }
+
+    aside {
+      padding: 18px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: auto;
+    }
+
+    main {
+      min-width: 0;
+      padding: 18px 22px 24px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .group {
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .row {
+      margin: 9px 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .row input,
+    .row select {
+      width: 126px;
+      min-width: 0;
+      padding: 5px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button,
+    .file-button {
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--tool);
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    button:hover,
+    .file-button:hover { border-color: #9a9a92; }
+
+    button.primary,
+    .file-button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover,
+    .file-button.primary:hover { background: var(--accent-dark); }
+
+    button.warn {
+      background: #f0e5de;
+      border-color: #d3b19d;
+      color: var(--warn);
+    }
+
+    input[type="file"] { display: none; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .status {
+      min-width: 260px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) 330px;
+      gap: 16px;
+    }
+
+    .stage-wrap,
+    .slots,
+    .info-panel {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .stage-wrap {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .stage-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .canvas-shell {
+      min-height: 0;
+      padding: 20px;
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      border-radius: 6px;
+      background:
+        linear-gradient(45deg, #deded8 25%, transparent 25%),
+        linear-gradient(-45deg, #deded8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #deded8 75%),
+        linear-gradient(-45deg, transparent 75%, #deded8 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+
+    #preview {
+      width: min(72vh, 680px);
+      height: min(72vh, 680px);
+      background: transparent;
+      image-rendering: pixelated;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .slots {
+      overflow: auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .slot {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8f8f5;
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .slot canvas,
+    .channel canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid #222;
+      background: #000;
+      image-rendering: pixelated;
+    }
+
+    .slot-body {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .slot-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .slot-head strong {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      color: #fff;
+      background: var(--accent);
+    }
+
+    .slot-name {
+      min-width: 0;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .slot-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .slot-controls select {
+      min-width: 0;
+      width: 100%;
+      padding: 5px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+    }
+
+    .slot-controls button,
+    .slot-controls .file-button {
+      min-height: 30px;
+      padding: 5px 7px;
+      font-size: 12px;
+    }
+
+    .info-panel {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8f8f5;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 18px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .channels {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .channel div {
+      margin-top: 5px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .workspace { grid-template-columns: 1fr; }
+      .info-panel { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div>
+        <h1>SDF RGBA 合图</h1>
+        <p class="hint">上传 1-4 张图，组合成 RGBA 贴图；空通道可填 0 或 1。</p>
+      </div>
+
+      <div class="group">
+        <h2>批量导入</h2>
+        <div class="buttons">
+          <label class="file-button primary" for="bulkInput">导入 1-4 张图</label>
+          <button id="clearAllBtn" class="warn">清空图片</button>
+        </div>
+        <input id="bulkInput" type="file" accept="image/*" multiple>
+        <p class="hint">1 张按 RGB 使用；2 张按 RGB + A；3 张按 R/G/B；4 张按 R/G/B/A。</p>
+      </div>
+
+      <div class="group">
+        <h2>尺寸</h2>
+        <label class="row">
+          <span>宽度</span>
+          <input id="widthInput" type="number" min="1" max="16384" value="512">
+        </label>
+        <label class="row">
+          <span>高度</span>
+          <input id="heightInput" type="number" min="1" max="16384" value="512">
+        </label>
+        <label class="row">
+          <span>缩放过滤</span>
+          <select id="scaleMode">
+            <option value="nearest" selected>最近</option>
+            <option value="linear">线性</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="group">
+        <h2>导出</h2>
+        <label class="row">
+          <span>格式</span>
+          <select id="formatSelect">
+            <option value="png" selected>PNG</option>
+            <option value="tga">TGA / TAG</option>
+            <option value="tiff">TIFF</option>
+            <option value="raw">RAW</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>导出通道</span>
+          <select id="channelMode">
+            <option value="rgba" selected>RGBA</option>
+            <option value="rgb">RGB</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>Bit</span>
+          <select id="bitDepth">
+            <option value="8" selected>8-bit / 通道</option>
+            <option value="16">16-bit / 通道</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>文件名</span>
+          <input id="fileNameInput" type="text" value="sdf_rgba">
+        </label>
+        <div class="buttons">
+          <button id="saveBtn" class="primary">保存文件</button>
+          <button id="savePreviewBtn">保存预览 PNG</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>合成通道预览</h2>
+        <div class="channels">
+          <div class="channel"><canvas id="rView" width="128" height="128"></canvas><div>R</div></div>
+          <div class="channel"><canvas id="gView" width="128" height="128"></canvas><div>G</div></div>
+          <div class="channel"><canvas id="bView" width="128" height="128"></canvas><div>B</div></div>
+          <div class="channel"><canvas id="aView" width="128" height="128"></canvas><div>A</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <strong id="titleReadout">RGBA / 512 x 512</strong>
+          <span class="hint" id="formatReadout">PNG 8-bit / 通道</span>
+        </div>
+        <div id="status" class="status">等待导入图片</div>
+      </div>
+
+      <section class="workspace">
+        <div class="stage-wrap">
+          <div class="stage-title">
+            <span>RGBA 预览</span>
+            <span id="alphaReadout">A: 空值 1</span>
+          </div>
+          <div class="canvas-shell">
+            <canvas id="preview" width="512" height="512"></canvas>
+          </div>
+        </div>
+
+        <div id="slots" class="slots"></div>
+      </section>
+
+      <section class="info-panel">
+        <div class="metric"><span>实时文件大小</span><strong id="sizeReadout">0 B</strong></div>
+        <div class="metric"><span>实际 Bit</span><strong id="depthReadout">8</strong></div>
+        <div class="metric"><span>像素</span><strong id="pixelReadout">262,144</strong></div>
+        <div class="metric"><span>说明</span><strong id="noteReadout">Ready</strong></div>
+      </section>
+    </main>
+  </div>
+
+  <input id="rInput" type="file" accept="image/*">
+  <input id="gInput" type="file" accept="image/*">
+  <input id="bInput" type="file" accept="image/*">
+  <input id="aInput" type="file" accept="image/*">
+
+  <script>
+    const CHANNELS = [
+      { key: "r", label: "R", offset: 0, color: "#b8403d" },
+      { key: "g", label: "G", offset: 1, color: "#397a55" },
+      { key: "b", label: "B", offset: 2, color: "#315f9c" },
+      { key: "a", label: "A", offset: 3, color: "#6c6475" }
+    ];
+
+    const state = {
+      width: 512,
+      height: 512,
+      channels: {},
+      outputCanvas: document.createElement("canvas"),
+      previewCanvas: document.getElementById("preview"),
+      outputImage: null,
+      previewImage: null
+    };
+
+    CHANNELS.forEach((channel) => {
+      state.channels[channel.key] = {
+        image: null,
+        fileName: "",
+        source: "luma",
+        fallback: channel.key === "a" ? 1 : 0
+      };
+    });
+
+    const slotsEl = document.getElementById("slots");
+    const statusEl = document.getElementById("status");
+    const titleReadout = document.getElementById("titleReadout");
+    const formatReadout = document.getElementById("formatReadout");
+    const alphaReadout = document.getElementById("alphaReadout");
+    const sizeReadout = document.getElementById("sizeReadout");
+    const depthReadout = document.getElementById("depthReadout");
+    const pixelReadout = document.getElementById("pixelReadout");
+    const noteReadout = document.getElementById("noteReadout");
+    const widthInput = document.getElementById("widthInput");
+    const heightInput = document.getElementById("heightInput");
+    const scaleMode = document.getElementById("scaleMode");
+    const formatSelect = document.getElementById("formatSelect");
+    const channelMode = document.getElementById("channelMode");
+    const bitDepth = document.getElementById("bitDepth");
+    const fileNameInput = document.getElementById("fileNameInput");
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function sanitizeName(name) {
+      return (name || "sdf_rgba").trim().replace(/[\\/:*?"<>|]+/g, "_") || "sdf_rgba";
+    }
+
+    function formatBytes(bytes) {
+      const units = ["B", "KB", "MB", "GB"];
+      let value = bytes;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+      }
+      return `${value.toFixed(unit === 0 ? 0 : 2)} ${units[unit]}`;
+    }
+
+    function actualDepth() {
+      return formatSelect.value === "tga" ? 8 : Number(bitDepth.value);
+    }
+
+    function exportChannelCount() {
+      return channelMode.value === "rgb" ? 3 : 4;
+    }
+
+    function exportLabel() {
+      return exportChannelCount() === 3 ? "RGB" : "RGBA";
+    }
+
+    function extensionForFormat(format) {
+      if (format === "tga") return "tga";
+      if (format === "tiff") return "tif";
+      if (format === "raw") return `${exportLabel().toLowerCase()}${Number(bitDepth.value) === 16 ? "16" : "8"}`;
+      return "png";
+    }
+
+    function mimeForFormat(format) {
+      if (format === "png") return "image/png";
+      if (format === "tga") return "image/x-tga";
+      if (format === "tiff") return "image/tiff";
+      return "application/octet-stream";
+    }
+
+    function componentValue(data, offset, source) {
+      if (source === "r") return data[offset];
+      if (source === "g") return data[offset + 1];
+      if (source === "b") return data[offset + 2];
+      if (source === "a") return data[offset + 3];
+      return clamp(Math.round(data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114), 0, 255);
+    }
+
+    function readImage(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const url = URL.createObjectURL(file);
+        image.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error(`Could not load image: ${file.name}`));
+        };
+        image.src = url;
+      });
+    }
+
+    function buildSlots() {
+      slotsEl.innerHTML = "";
+      CHANNELS.forEach((channel) => {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.innerHTML = `
+          <canvas id="${channel.key}SlotView" width="96" height="96"></canvas>
+          <div class="slot-body">
+            <div class="slot-head">
+              <strong style="background:${channel.color}">${channel.label}</strong>
+              <span id="${channel.key}Name" class="slot-name">空</span>
+            </div>
+            <div class="slot-controls">
+              <label class="file-button" for="${channel.key}Input">选择图</label>
+              <button data-clear="${channel.key}">清空</button>
+              <select id="${channel.key}Source">
+                <option value="luma" selected>来源: 亮度</option>
+                <option value="r">来源: R</option>
+                <option value="g">来源: G</option>
+                <option value="b">来源: B</option>
+                <option value="a">来源: A</option>
+              </select>
+              <select id="${channel.key}Fallback">
+                <option value="0">空值: 0</option>
+                <option value="1">空值: 1</option>
+              </select>
+            </div>
+          </div>
+        `;
+        slotsEl.appendChild(slot);
+        document.getElementById(`${channel.key}Source`).addEventListener("change", (event) => {
+          state.channels[channel.key].source = event.target.value;
+          rebuild();
+        });
+        const fallback = document.getElementById(`${channel.key}Fallback`);
+        fallback.value = String(state.channels[channel.key].fallback);
+        fallback.addEventListener("change", (event) => {
+          state.channels[channel.key].fallback = Number(event.target.value);
+          rebuild();
+        });
+      });
+
+      document.querySelectorAll("[data-clear]").forEach((button) => {
+        button.addEventListener("click", () => {
+          clearChannel(button.dataset.clear);
+          rebuild();
+        });
+      });
+    }
+
+    function setOutputSize(width, height) {
+      state.width = clamp(Math.round(width) || 512, 1, 16384);
+      state.height = clamp(Math.round(height) || 512, 1, 16384);
+      widthInput.value = String(state.width);
+      heightInput.value = String(state.height);
+      state.outputCanvas.width = state.width;
+      state.outputCanvas.height = state.height;
+      state.previewCanvas.width = state.width;
+      state.previewCanvas.height = state.height;
+    }
+
+    function hasAnyImage() {
+      return CHANNELS.some((channel) => state.channels[channel.key].image);
+    }
+
+    function clearChannel(channelKey) {
+      const slot = state.channels[channelKey];
+      slot.image = null;
+      slot.fileName = "";
+      document.getElementById(`${channelKey}Input`).value = "";
+    }
+
+    function clearAllImages() {
+      CHANNELS.forEach((channel) => clearChannel(channel.key));
+      setStatus("已清空图片");
+      rebuild();
+    }
+
+    function setChannel(channelKey, image, fileName, source) {
+      const slot = state.channels[channelKey];
+      slot.image = image;
+      slot.fileName = fileName;
+      if (source) {
+        slot.source = source;
+        document.getElementById(`${channelKey}Source`).value = source;
+      }
+    }
+
+    async function loadSingleChannel(channelKey, file) {
+      if (!file) return;
+      const image = await readImage(file);
+      if (!hasAnyImage()) {
+        setOutputSize(image.naturalWidth, image.naturalHeight);
+      }
+      setChannel(channelKey, image, file.name, state.channels[channelKey].source);
+      setStatus(`已导入 ${channelKey.toUpperCase()}：${file.name}`);
+      rebuild();
+    }
+
+    async function loadBulk(files) {
+      const imageFiles = [...files].filter((file) => file.type.startsWith("image/"));
+      imageFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      if (!imageFiles.length) {
+        setStatus("没有可导入的图片");
+        return;
+      }
+
+      const loaded = [];
+      for (const file of imageFiles.slice(0, 4)) {
+        loaded.push({ file, image: await readImage(file) });
+      }
+
+      setOutputSize(loaded[0].image.naturalWidth, loaded[0].image.naturalHeight);
+      CHANNELS.forEach((channel) => clearChannel(channel.key));
+
+      if (loaded.length === 1) {
+        setChannel("r", loaded[0].image, loaded[0].file.name, "r");
+        setChannel("g", loaded[0].image, loaded[0].file.name, "g");
+        setChannel("b", loaded[0].image, loaded[0].file.name, "b");
+      } else if (loaded.length === 2) {
+        setChannel("r", loaded[0].image, loaded[0].file.name, "r");
+        setChannel("g", loaded[0].image, loaded[0].file.name, "g");
+        setChannel("b", loaded[0].image, loaded[0].file.name, "b");
+        setChannel("a", loaded[1].image, loaded[1].file.name, "luma");
+      } else {
+        CHANNELS.forEach((channel, index) => {
+          if (loaded[index]) {
+            setChannel(channel.key, loaded[index].image, loaded[index].file.name, "luma");
+          }
+        });
+      }
+
+      setStatus(`已批量导入 ${loaded.length} 张图`);
+      rebuild();
+    }
+
+    function drawSourceToData(slot) {
+      const canvas = document.createElement("canvas");
+      canvas.width = state.width;
+      canvas.height = state.height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = scaleMode.value === "linear";
+      ctx.clearRect(0, 0, state.width, state.height);
+      ctx.drawImage(slot.image, 0, 0, state.width, state.height);
+      return ctx.getImageData(0, 0, state.width, state.height).data;
+    }
+
+    function rebuild() {
+      setOutputSize(Number(widthInput.value), Number(heightInput.value));
+
+      const total = state.width * state.height;
+      const ctx = state.outputCanvas.getContext("2d", { willReadFrequently: true });
+      const output = ctx.createImageData(state.width, state.height);
+      const channelValues = {};
+
+      CHANNELS.forEach((channel) => {
+        const slot = state.channels[channel.key];
+        const values = new Uint8ClampedArray(total);
+
+        if (slot.image) {
+          const data = drawSourceToData(slot);
+          for (let p = 0, i = 0; p < total; p++, i += 4) {
+            values[p] = componentValue(data, i, slot.source);
+          }
+        } else {
+          values.fill(slot.fallback ? 255 : 0);
+        }
+
+        channelValues[channel.key] = values;
+      });
+
+      for (let p = 0, i = 0; p < total; p++, i += 4) {
+        output.data[i] = channelValues.r[p];
+        output.data[i + 1] = channelValues.g[p];
+        output.data[i + 2] = channelValues.b[p];
+        output.data[i + 3] = exportChannelCount() === 3 ? 255 : channelValues.a[p];
+      }
+
+      state.outputImage = output;
+      ctx.putImageData(output, 0, 0);
+      drawPreview();
+      drawChannelViews(channelValues);
+      updateReadouts();
+    }
+
+    function drawPreview() {
+      const ctx = state.previewCanvas.getContext("2d");
+      const size = Math.max(8, Math.floor(Math.min(state.width, state.height) / 32));
+      for (let y = 0; y < state.height; y += size) {
+        for (let x = 0; x < state.width; x += size) {
+          ctx.fillStyle = ((x / size + y / size) % 2) ? "#cfcfca" : "#f0f0ec";
+          ctx.fillRect(x, y, size, size);
+        }
+      }
+      ctx.drawImage(state.outputCanvas, 0, 0);
+      state.previewImage = ctx.getImageData(0, 0, state.width, state.height);
+    }
+
+    function drawChannelViews(channelValues) {
+      CHANNELS.forEach((channel) => {
+        drawGrayCanvas(document.getElementById(`${channel.key}View`), channelValues[channel.key]);
+        drawGrayCanvas(document.getElementById(`${channel.key}SlotView`), channelValues[channel.key]);
+        const slot = state.channels[channel.key];
+        document.getElementById(`${channel.key}Name`).textContent = slot.fileName || `空，填 ${slot.fallback}`;
+      });
+    }
+
+    function drawGrayCanvas(canvas, values) {
+      canvas.width = state.width;
+      canvas.height = state.height;
+      const ctx = canvas.getContext("2d");
+      const image = ctx.createImageData(state.width, state.height);
+      for (let p = 0, i = 0; p < values.length; p++, i += 4) {
+        const value = values[p];
+        image.data[i] = value;
+        image.data[i + 1] = value;
+        image.data[i + 2] = value;
+        image.data[i + 3] = 255;
+      }
+      ctx.putImageData(image, 0, 0);
+    }
+
+    function estimatePngSize(depth) {
+      const bytesPerSample = depth === 16 ? 2 : 1;
+      const rawBytes = state.height * (1 + state.width * exportChannelCount() * bytesPerSample);
+      const blocks = Math.max(1, Math.ceil(rawBytes / 65535));
+      const zlibBytes = 2 + rawBytes + blocks * 5 + 4;
+      return 8 + 25 + (12 + zlibBytes) + 12;
+    }
+
+    function estimateTiffSize(depth) {
+      const bytesPerSample = depth === 16 ? 2 : 1;
+      const entries = exportChannelCount() === 4 ? 11 : 10;
+      const bitsOffset = 8 + 2 + entries * 12 + 4;
+      const pixelOffset = bitsOffset + exportChannelCount() * 2;
+      return pixelOffset + state.width * state.height * exportChannelCount() * bytesPerSample;
+    }
+
+    function estimateSize() {
+      const format = formatSelect.value;
+      const depth = actualDepth();
+      const total = state.width * state.height;
+      if (format === "png") return estimatePngSize(depth);
+      if (format === "tga") return 18 + total * exportChannelCount();
+      if (format === "tiff") return estimateTiffSize(depth);
+      return total * exportChannelCount() * (depth === 16 ? 2 : 1);
+    }
+
+    function updateReadouts() {
+      const format = formatSelect.value.toUpperCase();
+      const selectedDepth = Number(bitDepth.value);
+      const depth = actualDepth();
+      const pixels = state.width * state.height;
+      const tgaNote = formatSelect.value === "tga" && selectedDepth === 16;
+      const rawNote = formatSelect.value === "raw" ? `无头 ${exportLabel()} 顺序` : "Ready";
+
+      titleReadout.textContent = `${exportLabel()} / ${state.width} x ${state.height}`;
+      formatReadout.textContent = `${format} ${exportLabel()} ${depth}-bit / 通道`;
+      alphaReadout.textContent = `A: ${state.channels.a.fileName ? state.channels.a.fileName : `空值 ${state.channels.a.fallback}`}`;
+      sizeReadout.textContent = formatBytes(estimateSize());
+      depthReadout.textContent = `${depth}-bit`;
+      pixelReadout.textContent = pixels.toLocaleString();
+      noteReadout.textContent = tgaNote ? "TGA 固定 8-bit" : rawNote;
+    }
+
+    function setUint32BE(data, offset, value) {
+      data[offset] = (value >>> 24) & 255;
+      data[offset + 1] = (value >>> 16) & 255;
+      data[offset + 2] = (value >>> 8) & 255;
+      data[offset + 3] = value & 255;
+    }
+
+    const crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+          c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        }
+        table[n] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32(bytes) {
+      let c = 0xffffffff;
+      for (let i = 0; i < bytes.length; i++) {
+        c = crcTable[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+      }
+      return (c ^ 0xffffffff) >>> 0;
+    }
+
+    function adler32(bytes) {
+      let a = 1;
+      let b = 0;
+      for (let i = 0; i < bytes.length; i++) {
+        a = (a + bytes[i]) % 65521;
+        b = (b + a) % 65521;
+      }
+      return ((b << 16) | a) >>> 0;
+    }
+
+    function pngChunk(type, payload) {
+      const typeBytes = new TextEncoder().encode(type);
+      const out = new Uint8Array(12 + payload.length);
+      setUint32BE(out, 0, payload.length);
+      out.set(typeBytes, 4);
+      out.set(payload, 8);
+      const crcInput = new Uint8Array(typeBytes.length + payload.length);
+      crcInput.set(typeBytes, 0);
+      crcInput.set(payload, typeBytes.length);
+      setUint32BE(out, out.length - 4, crc32(crcInput));
+      return out;
+    }
+
+    function concatBytes(parts) {
+      const size = parts.reduce((sum, part) => sum + part.length, 0);
+      const out = new Uint8Array(size);
+      let offset = 0;
+      parts.forEach((part) => {
+        out.set(part, offset);
+        offset += part.length;
+      });
+      return out;
+    }
+
+    function zlibStore(bytes) {
+      const blocks = Math.max(1, Math.ceil(bytes.length / 65535));
+      const out = new Uint8Array(2 + bytes.length + blocks * 5 + 4);
+      let offset = 0;
+      let source = 0;
+      out[offset++] = 0x78;
+      out[offset++] = 0x01;
+
+      for (let block = 0; block < blocks; block++) {
+        const remaining = bytes.length - source;
+        const length = Math.min(65535, remaining);
+        const finalBlock = block === blocks - 1;
+        out[offset++] = finalBlock ? 1 : 0;
+        out[offset++] = length & 255;
+        out[offset++] = (length >> 8) & 255;
+        const nlen = (~length) & 0xffff;
+        out[offset++] = nlen & 255;
+        out[offset++] = (nlen >> 8) & 255;
+        out.set(bytes.subarray(source, source + length), offset);
+        offset += length;
+        source += length;
+      }
+
+      setUint32BE(out, out.length - 4, adler32(bytes));
+      return out;
+    }
+
+    function buildPngBlob(depth) {
+      const bytesPerSample = depth === 16 ? 2 : 1;
+      const channels = exportChannelCount();
+      const stride = state.width * channels * bytesPerSample;
+      const raw = new Uint8Array(state.height * (1 + stride));
+      let target = 0;
+      let source = 0;
+      const data = state.outputImage.data;
+
+      for (let y = 0; y < state.height; y++) {
+        raw[target++] = 0;
+        for (let x = 0; x < state.width; x++, source += 4) {
+          for (let c = 0; c < channels; c++) {
+            const value = data[source + c];
+            if (depth === 16) {
+              const sample = value * 257;
+              raw[target++] = (sample >> 8) & 255;
+              raw[target++] = sample & 255;
+            } else {
+              raw[target++] = value;
+            }
+          }
+        }
+      }
+
+      const ihdr = new Uint8Array(13);
+      setUint32BE(ihdr, 0, state.width);
+      setUint32BE(ihdr, 4, state.height);
+      ihdr[8] = depth;
+      ihdr[9] = channels === 4 ? 6 : 2;
+      ihdr[10] = 0;
+      ihdr[11] = 0;
+      ihdr[12] = 0;
+
+      const png = concatBytes([
+        new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        pngChunk("IHDR", ihdr),
+        pngChunk("IDAT", zlibStore(raw)),
+        pngChunk("IEND", new Uint8Array(0))
+      ]);
+
+      return new Blob([png], { type: "image/png" });
+    }
+
+    function buildTgaBlob() {
+      const total = state.width * state.height;
+      const channels = exportChannelCount();
+      const out = new Uint8Array(18 + total * channels);
+      out[2] = 2;
+      out[12] = state.width & 255;
+      out[13] = (state.width >> 8) & 255;
+      out[14] = state.height & 255;
+      out[15] = (state.height >> 8) & 255;
+      out[16] = channels === 4 ? 32 : 24;
+      out[17] = channels === 4 ? 40 : 32;
+
+      const data = state.outputImage.data;
+      for (let source = 0, target = 18; source < data.length; source += 4, target += channels) {
+        out[target] = data[source + 2];
+        out[target + 1] = data[source + 1];
+        out[target + 2] = data[source];
+        if (channels === 4) {
+          out[target + 3] = data[source + 3];
+        }
+      }
+
+      return new Blob([out], { type: "image/x-tga" });
+    }
+
+    function writeTiffEntry(view, entryOffset, tag, type, count, value) {
+      view.setUint16(entryOffset, tag, true);
+      view.setUint16(entryOffset + 2, type, true);
+      view.setUint32(entryOffset + 4, count, true);
+      if (type === 3 && count === 1) {
+        view.setUint16(entryOffset + 8, value, true);
+        view.setUint16(entryOffset + 10, 0, true);
+      } else {
+        view.setUint32(entryOffset + 8, value, true);
+      }
+    }
+
+    function buildTiffBlob(depth) {
+      const bytesPerSample = depth === 16 ? 2 : 1;
+      const channels = exportChannelCount();
+      const entries = channels === 4 ? 11 : 10;
+      const ifdOffset = 8;
+      const bitsOffset = ifdOffset + 2 + entries * 12 + 4;
+      const pixelOffset = bitsOffset + channels * 2;
+      const pixelBytes = state.width * state.height * channels * bytesPerSample;
+      const buffer = new ArrayBuffer(pixelOffset + pixelBytes);
+      const view = new DataView(buffer);
+      const bytes = new Uint8Array(buffer);
+
+      bytes[0] = 0x49;
+      bytes[1] = 0x49;
+      view.setUint16(2, 42, true);
+      view.setUint32(4, ifdOffset, true);
+      view.setUint16(ifdOffset, entries, true);
+
+      let entry = ifdOffset + 2;
+      const add = (tag, type, count, value) => {
+        writeTiffEntry(view, entry, tag, type, count, value);
+        entry += 12;
+      };
+
+      add(256, 4, 1, state.width);
+      add(257, 4, 1, state.height);
+      add(258, 3, 4, bitsOffset);
+      add(259, 3, 1, 1);
+      add(262, 3, 1, 2);
+      add(273, 4, 1, pixelOffset);
+      add(277, 3, 1, channels);
+      add(278, 4, 1, state.height);
+      add(279, 4, 1, pixelBytes);
+      add(284, 3, 1, 1);
+      if (channels === 4) {
+        add(338, 3, 1, 2);
+      }
+      view.setUint32(entry, 0, true);
+
+      for (let i = 0; i < channels; i++) {
+        view.setUint16(bitsOffset + i * 2, depth, true);
+      }
+
+      const data = state.outputImage.data;
+      let target = pixelOffset;
+      for (let source = 0; source < data.length; source += 4) {
+        for (let c = 0; c < channels; c++) {
+          const value = data[source + c];
+          if (depth === 16) {
+            view.setUint16(target, value * 257, true);
+            target += 2;
+          } else {
+            bytes[target++] = value;
+          }
+        }
+      }
+
+      return new Blob([buffer], { type: "image/tiff" });
+    }
+
+    function buildRawBlob(depth) {
+      const data = state.outputImage.data;
+      const channels = exportChannelCount();
+      if (depth === 8) {
+        const out = new Uint8Array(state.width * state.height * channels);
+        for (let source = 0, target = 0; source < data.length; source += 4) {
+          for (let c = 0; c < channels; c++) {
+            out[target++] = data[source + c];
+          }
+        }
+        return new Blob([out], { type: "application/octet-stream" });
+      }
+
+      const buffer = new ArrayBuffer(state.width * state.height * channels * 2);
+      const view = new DataView(buffer);
+      let target = 0;
+      for (let source = 0; source < data.length; source += 4) {
+        for (let c = 0; c < channels; c++) {
+          view.setUint16(target, data[source + c] * 257, true);
+          target += 2;
+        }
+      }
+      return new Blob([buffer], { type: "application/octet-stream" });
+    }
+
+    function buildBlob() {
+      const format = formatSelect.value;
+      const depth = actualDepth();
+      if (format === "png") return buildPngBlob(depth);
+      if (format === "tga") return buildTgaBlob();
+      if (format === "tiff") return buildTiffBlob(depth);
+      return buildRawBlob(depth);
+    }
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    function saveFile() {
+      rebuild();
+      const format = formatSelect.value;
+      const name = `${sanitizeName(fileNameInput.value)}_${exportLabel().toLowerCase()}_${actualDepth()}bit.${extensionForFormat(format)}`;
+      const blob = buildBlob();
+      downloadBlob(blob, name);
+      setStatus(`已保存 ${name}，${formatBytes(blob.size)}`);
+    }
+
+    function savePreview() {
+      state.previewCanvas.toBlob((blob) => {
+        downloadBlob(blob, `${sanitizeName(fileNameInput.value)}_preview.png`);
+        setStatus(`已保存预览 PNG，${formatBytes(blob.size)}`);
+      }, "image/png");
+    }
+
+    buildSlots();
+    setOutputSize(512, 512);
+    rebuild();
+
+    document.getElementById("bulkInput").addEventListener("change", (event) => {
+      loadBulk(event.target.files);
+      event.target.value = "";
+    });
+
+    CHANNELS.forEach((channel) => {
+      document.getElementById(`${channel.key}Input`).addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        loadSingleChannel(channel.key, file);
+      });
+    });
+
+    document.getElementById("clearAllBtn").addEventListener("click", clearAllImages);
+    document.getElementById("saveBtn").addEventListener("click", saveFile);
+    document.getElementById("savePreviewBtn").addEventListener("click", savePreview);
+    [widthInput, heightInput, scaleMode, formatSelect, channelMode, bitDepth, fileNameInput].forEach((element) => {
+      element.addEventListener("input", rebuild);
+      element.addEventListener("change", rebuild);
+    });
+  </script>
+</body>
+</html>
