@@ -2,13 +2,9 @@
 
 欢迎使用 POPJIA 的卡通渲染辅助工具箱。
 
-## 在线工具入口
-
-点击进入工具箱主页：
-
-[https://popjia.github.io/ToonTools/](https://popjia.github.io/ToonTools/)
-
 ## 当前包含工具
+
+点击下方工具名称即可在浏览器中直接使用：
 
 - [Normal Fixer](https://popjia.github.io/ToonTools/NormalFixer/)：快速修复卡通角色法线朝向与平滑度。
 - [SDF 通道序列拆解](https://popjia.github.io/ToonTools/SDF_Frame_Painter/SDF_Frame_Painter.html)：将 SDF 通道序列按角度拆解，并导出对应帧。
