@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Normal DX / OpenGL Switcher</title>
+  <style>
+    :root {
+      --bg: #f4f2ed;
+      --panel: #ffffff;
+      --soft: #f9f7f1;
+      --ink: #171717;
+      --muted: #68645d;
+      --line: #d7d1c6;
+      --accent: #117f7a;
+      --accent-strong: #0b625e;
+      --warn: #b95032;
+      --shadow: 0 18px 48px rgba(31, 28, 21, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(23, 23, 23, 0.045) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(23, 23, 23, 0.045) 1px, transparent 1px),
+        var(--bg);
+      background-size: 32px 32px;
+    }
+
+    button, input { font: inherit; }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      min-height: 38px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .46;
+    }
+
+    .primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .primary:hover:not(:disabled) {
+      background: var(--accent-strong);
+      border-color: var(--accent-strong);
+    }
+
+    .icon {
+      width: 17px;
+      height: 17px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    .shell {
+      width: min(1480px, calc(100vw - 36px));
+      margin: 0 auto;
+      padding: 22px 0 28px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 2vw, 32px);
+      letter-spacing: 0;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 328px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .sidebar, .workspace {
+      background: rgba(255, 255, 255, .86);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      padding: 14px;
+      position: sticky;
+      top: 14px;
+    }
+
+    .workspace {
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .dropzone {
+      border: 1px dashed #a59f94;
+      border-radius: 8px;
+      min-height: 156px;
+      padding: 14px;
+      background: var(--soft);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      transition: border-color .16s ease, background .16s ease;
+    }
+
+    .dropzone.dragging {
+      border-color: var(--accent);
+      background: #e9f4f1;
+    }
+
+    .drop-inner {
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+    }
+
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, #8080ff 0%, #8080ff 36%, #80ff80 36%, #80ff80 66%, #ff8080 66%, #ff8080 100%);
+      box-shadow: inset 0 0 0 6px rgba(255, 255, 255, .34);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .section {
+      display: grid;
+      gap: 10px;
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #46423d;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #eee9df;
+    }
+
+    .segmented button {
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      min-height: 36px;
+      font-size: 13px;
+      padding: 0 9px;
+    }
+
+    .segmented button.active {
+      background: var(--panel);
+      color: var(--accent-strong);
+      box-shadow: 0 2px 8px rgba(31, 28, 21, .10);
+      font-weight: 700;
+    }
+
+    .mode-note {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff9ed;
+      border: 1px solid #ead5af;
+      color: #665033;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mode-note svg {
+      color: var(--warn);
+      margin-top: 1px;
+    }
+
+    .stats {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .stat {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .stat b {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .stat span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .viewbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .viewbar .segmented {
+      width: min(520px, 100%);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .preview {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .preview-head {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfaf7;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: #285d59;
+      border: 1px solid #a6d1cd;
+      background: #e6f4f2;
+      border-radius: 999px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      background-color: #b8b3aa;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.45) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.45) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.45) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.45) 75%);
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+      background-size: 24px 24px;
+    }
+
+    canvas {
+      max-width: 100%;
+      max-height: min(72vh, 760px);
+      width: auto;
+      height: auto;
+      image-rendering: auto;
+      display: none;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+      background: transparent;
+    }
+
+    .empty {
+      display: grid;
+      gap: 8px;
+      place-items: center;
+      color: #4d4942;
+      text-align: center;
+      padding: 24px;
+      max-width: 340px;
+    }
+
+    .empty strong { font-size: 15px; }
+
+    .empty span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .footer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1040px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .preview-grid { grid-template-columns: 1fr; }
+      .canvas-wrap { min-height: 360px; }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 22px, 1480px);
+        padding-top: 12px;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+      }
+
+      h1, .subtitle { white-space: normal; }
+
+      .toolbar, .footer-actions { justify-content: stretch; }
+
+      .toolbar button, .footer-actions button { flex: 1 1 auto; }
+    }
+  </style>
+</head>
+<body>
+  <input id="fileInput" class="hidden" type="file" accept="image/png,image/tga,.png,.tga">
+
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Normal DX / OpenGL Switcher</h1>
+        <div class="subtitle">法线贴图 Y 方向切换工具，只翻转 Green 通道</div>
+      </div>
+      <div class="toolbar">
+        <button id="pickBtn" class="primary" type="button" title="选择一张法线贴图">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8 12 3 7 8"/><path d="M12 3v12"/></svg>
+          选择贴图
+        </button>
+        <button id="downloadBtn" type="button" disabled title="下载转换后的贴图">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          下载
+        </button>
+        <button id="resetBtn" type="button" disabled title="清空当前图片">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+          清空
+        </button>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <div id="dropzone" class="dropzone">
+          <div class="drop-inner">
+            <div class="drop-icon" aria-hidden="true"></div>
+            <button id="pickInsideBtn" type="button">导入法线贴图</button>
+            <div class="hint">拖入 PNG / TGA，输出可选 PNG / TGA</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">转换方向</div>
+          <div class="segmented" role="tablist" aria-label="转换方向">
+            <button class="active" type="button" data-mode="dx-gl">DX → OpenGL</button>
+            <button type="button" data-mode="gl-dx">OpenGL → DX</button>
+          </div>
+          <div class="mode-note">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            <div>两种方向的像素操作相同：<b>G = 255 - G</b>。按钮只影响输出命名和提示。</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">导出格式</div>
+          <div class="segmented" role="tablist" aria-label="导出格式">
+            <button class="active" type="button" data-format="png">PNG</button>
+            <button type="button" data-format="tga">TGA</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">当前图片</div>
+          <div class="stats">
+            <div class="stat"><b>文件</b><span id="fileName">未导入</span></div>
+            <div class="stat"><b>尺寸</b><span id="imageSize">-</span></div>
+            <div class="stat"><b>像素</b><span id="pixelCount">-</span></div>
+            <div class="stat"><b>输出</b><span id="outputName">-</span></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="viewbar">
+          <div class="segmented" role="tablist" aria-label="预览模式">
+            <button class="active" type="button" data-view="rgb">RGB</button>
+            <button type="button" data-view="green">Green</button>
+            <button type="button" data-view="delta">差异</button>
+          </div>
+          <div class="hint" id="statusText">等待导入贴图</div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview">
+            <div class="preview-head">
+              <span>原图</span>
+              <span class="badge" id="sourceBadge">Source</span>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="sourceCanvas"></canvas>
+              <div id="sourceEmpty" class="empty">
+                <strong>没有导入图片</strong>
+                <span>导入后这里显示原始法线贴图。</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview">
+            <div class="preview-head">
+              <span>转换结果</span>
+              <span class="badge" id="resultBadge">G Inverted</span>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="resultCanvas"></canvas>
+              <div id="resultEmpty" class="empty">
+                <strong>等待转换</strong>
+                <span>结果会保留 R / B / A，只反转 G。</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="footer-actions">
+          <button id="swapBtn" type="button" title="切换输出命名方向">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+            切换方向
+          </button>
+          <button id="downloadBottomBtn" class="primary" type="button" disabled>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            下载转换图
+          </button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const pickBtn = document.getElementById('pickBtn');
+    const pickInsideBtn = document.getElementById('pickInsideBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadBottomBtn = document.getElementById('downloadBottomBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const swapBtn = document.getElementById('swapBtn');
+    const dropzone = document.getElementById('dropzone');
+    const sourceCanvas = document.getElementById('sourceCanvas');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const sourceEmpty = document.getElementById('sourceEmpty');
+    const resultEmpty = document.getElementById('resultEmpty');
+    const fileNameEl = document.getElementById('fileName');
+    const imageSizeEl = document.getElementById('imageSize');
+    const pixelCountEl = document.getElementById('pixelCount');
+    const outputNameEl = document.getElementById('outputName');
+    const statusText = document.getElementById('statusText');
+    const sourceBadge = document.getElementById('sourceBadge');
+    const resultBadge = document.getElementById('resultBadge');
+    const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
+    const viewButtons = Array.from(document.querySelectorAll('[data-view]'));
+    const formatButtons = Array.from(document.querySelectorAll('[data-format]'));
+
+    const state = {
+      mode: 'dx-gl',
+      view: 'rgb',
+      format: 'png',
+      fileName: '',
+      width: 0,
+      height: 0,
+      sourceImageData: null,
+      resultImageData: null,
+      outputName: ''
+    };
+
+    const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+    const resultCtx = resultCanvas.getContext('2d', { willReadFrequently: true });
+
+    pickBtn.addEventListener('click', openPicker);
+    pickInsideBtn.addEventListener('click', openPicker);
+    downloadBtn.addEventListener('click', downloadResult);
+    downloadBottomBtn.addEventListener('click', downloadResult);
+    resetBtn.addEventListener('click', reset);
+    swapBtn.addEventListener('click', () => setMode(state.mode === 'dx-gl' ? 'gl-dx' : 'dx-gl'));
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file) loadFile(file);
+    });
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.add('dragging');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('dragging');
+      });
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+
+    modeButtons.forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
+    viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
+    formatButtons.forEach((button) => button.addEventListener('click', () => setFormat(button.dataset.format)));
+
+    function openPicker() {
+      fileInput.click();
+    }
+
+    async function loadFile(file) {
+      statusText.textContent = '正在读取图片...';
+      try {
+        state.fileName = file.name || 'normal.png';
+        state.sourceImageData = await readImageFile(file);
+        state.width = state.sourceImageData.width;
+        state.height = state.sourceImageData.height;
+        resizeCanvases(state.width, state.height);
+        sourceCtx.putImageData(state.sourceImageData, 0, 0);
+        state.resultImageData = invertGreen(state.sourceImageData);
+        state.outputName = buildOutputName();
+        render();
+        updateInfo();
+        setEnabled(true);
+        statusText.textContent = '已转换：Green 通道已反转';
+      } catch (error) {
+        console.error(error);
+        statusText.textContent = '读取失败：请导入 PNG 或未压缩/RLE TGA';
+      }
+    }
+
+    async function readImageFile(file) {
+      const lowerName = (file.name || '').toLowerCase();
+      if (lowerName.endsWith('.tga')) {
+        return decodeTga(await file.arrayBuffer());
+      }
+
+      if (!lowerName.endsWith('.png')) {
+        throw new Error('Only PNG and TGA are supported');
+      }
+
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
+
+    function resizeCanvases(width, height) {
+      [sourceCanvas, resultCanvas].forEach((canvas) => {
+        canvas.width = width;
+        canvas.height = height;
+      });
+    }
+
+    function invertGreen(imageData) {
+      const output = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+      const data = output.data;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i + 1] = 255 - data[i + 1];
+      }
+      return output;
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      modeButtons.forEach((button) => button.classList.toggle('active', button.dataset.mode === mode));
+      state.outputName = buildOutputName();
+      updateInfo();
+      renderBadges();
+    }
+
+    function setView(view) {
+      state.view = view;
+      viewButtons.forEach((button) => button.classList.toggle('active', button.dataset.view === view));
+      render();
+    }
+
+    function setFormat(format) {
+      state.format = format;
+      formatButtons.forEach((button) => button.classList.toggle('active', button.dataset.format === format));
+      state.outputName = buildOutputName();
+      updateInfo();
+    }
+
+    function render() {
+      const hasImage = Boolean(state.sourceImageData && state.resultImageData);
+      sourceCanvas.style.display = hasImage ? 'block' : 'none';
+      resultCanvas.style.display = hasImage ? 'block' : 'none';
+      sourceEmpty.classList.toggle('hidden', hasImage);
+      resultEmpty.classList.toggle('hidden', hasImage);
+      if (!hasImage) return;
+      sourceCtx.putImageData(makePreviewData(state.sourceImageData, state.resultImageData, state.view, false), 0, 0);
+      resultCtx.putImageData(makePreviewData(state.sourceImageData, state.resultImageData, state.view, true), 0, 0);
+      renderBadges();
+    }
+
+    function makePreviewData(source, result, view, isResult) {
+      const base = isResult ? result : source;
+      const preview = new ImageData(new Uint8ClampedArray(base.data), base.width, base.height);
+      const data = preview.data;
+      const sourceData = source.data;
+      const resultData = result.data;
+
+      if (view === 'rgb') return preview;
+
+      if (view === 'green') {
+        for (let i = 0; i < data.length; i += 4) {
+          const g = data[i + 1];
+          data[i] = g;
+          data[i + 1] = g;
+          data[i + 2] = g;
+        }
+        return preview;
+      }
+
+      for (let i = 0; i < data.length; i += 4) {
+        const changed = Math.abs(resultData[i + 1] - sourceData[i + 1]);
+        if (isResult) {
+          data[i] = 30;
+          data[i + 1] = Math.min(255, changed);
+          data[i + 2] = 210;
+        } else {
+          data[i] = Math.min(255, changed);
+          data[i + 1] = 70;
+          data[i + 2] = 35;
+        }
+      }
+      return preview;
+    }
+
+    function renderBadges() {
+      sourceBadge.textContent = state.mode === 'dx-gl' ? 'DirectX +Y' : 'OpenGL -Y';
+      resultBadge.textContent = state.mode === 'dx-gl' ? 'OpenGL -Y' : 'DirectX +Y';
+    }
+
+    function updateInfo() {
+      if (!state.sourceImageData) {
+        fileNameEl.textContent = '未导入';
+        imageSizeEl.textContent = '-';
+        pixelCountEl.textContent = '-';
+        outputNameEl.textContent = '-';
+        return;
+      }
+      fileNameEl.textContent = state.fileName;
+      imageSizeEl.textContent = `${state.width} x ${state.height}`;
+      pixelCountEl.textContent = `${(state.width * state.height).toLocaleString()} px`;
+      outputNameEl.textContent = state.outputName;
+    }
+
+    function buildOutputName() {
+      if (!state.fileName) return '-';
+      const clean = state.fileName.replace(/\.[^.]+$/, '');
+      const suffix = state.mode === 'dx-gl' ? '_OpenGL' : '_DirectX';
+      return `${clean}${suffix}.${state.format}`;
+    }
+
+    function setEnabled(enabled) {
+      downloadBtn.disabled = !enabled;
+      downloadBottomBtn.disabled = !enabled;
+      resetBtn.disabled = !enabled;
+    }
+
+    function downloadResult() {
+      if (!state.resultImageData) return;
+      if (state.format === 'tga') {
+        saveBlob(new Blob([encodeTga(state.resultImageData)], { type: 'image/x-tga' }));
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = state.width;
+      canvas.height = state.height;
+      const ctx = canvas.getContext('2d');
+      ctx.putImageData(state.resultImageData, 0, 0);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          statusText.textContent = '导出失败';
+          return;
+        }
+        saveBlob(blob);
+      }, 'image/png');
+    }
+
+    function saveBlob(blob) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = state.outputName || `normal_converted.${state.format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      statusText.textContent = `已导出 ${link.download}`;
+    }
+
+    function reset() {
+      state.fileName = '';
+      state.width = 0;
+      state.height = 0;
+      state.sourceImageData = null;
+      state.resultImageData = null;
+      state.outputName = '';
+      fileInput.value = '';
+      [sourceCanvas, resultCanvas].forEach((canvas) => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = 0;
+        canvas.height = 0;
+      });
+      setEnabled(false);
+      updateInfo();
+      render();
+      statusText.textContent = '等待导入贴图';
+    }
+
+    function decodeTga(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length < 18) throw new Error('Invalid TGA');
+
+      const idLength = bytes[0];
+      const colorMapType = bytes[1];
+      const imageType = bytes[2];
+      const width = bytes[12] | (bytes[13] << 8);
+      const height = bytes[14] | (bytes[15] << 8);
+      const bitsPerPixel = bytes[16];
+      const descriptor = bytes[17];
+      const bytesPerPixel = bitsPerPixel / 8;
+      const topOrigin = (descriptor & 0x20) !== 0;
+
+      if (colorMapType !== 0) throw new Error('Color-mapped TGA is not supported');
+      if (![2, 3, 10, 11].includes(imageType)) throw new Error('Unsupported TGA type');
+      if (![8, 24, 32].includes(bitsPerPixel)) throw new Error('Unsupported TGA bit depth');
+      if (!width || !height) throw new Error('Invalid TGA size');
+
+      let offset = 18 + idLength;
+      const pixelCount = width * height;
+      const raw = new Uint8Array(pixelCount * bytesPerPixel);
+      const rle = imageType === 10 || imageType === 11;
+
+      if (rle) {
+        let ptr = 0;
+        while (ptr < raw.length && offset < bytes.length) {
+          const header = bytes[offset++];
+          const count = (header & 0x7f) + 1;
+          if (header & 0x80) {
+            const pixel = bytes.slice(offset, offset + bytesPerPixel);
+            offset += bytesPerPixel;
+            for (let i = 0; i < count; i++) {
+              raw.set(pixel, ptr);
+              ptr += bytesPerPixel;
+            }
+          } else {
+            const size = count * bytesPerPixel;
+            raw.set(bytes.slice(offset, offset + size), ptr);
+            ptr += size;
+            offset += size;
+          }
+        }
+      } else {
+        raw.set(bytes.slice(offset, offset + pixelCount * bytesPerPixel));
+      }
+
+      const imageData = new ImageData(width, height);
+      const out = imageData.data;
+      for (let y = 0; y < height; y++) {
+        const srcY = topOrigin ? y : height - 1 - y;
+        for (let x = 0; x < width; x++) {
+          const src = (srcY * width + x) * bytesPerPixel;
+          const dst = (y * width + x) * 4;
+          if (bitsPerPixel === 8) {
+            const v = raw[src];
+            out[dst] = v;
+            out[dst + 1] = v;
+            out[dst + 2] = v;
+            out[dst + 3] = 255;
+          } else {
+            out[dst] = raw[src + 2];
+            out[dst + 1] = raw[src + 1];
+            out[dst + 2] = raw[src];
+            out[dst + 3] = bitsPerPixel === 32 ? raw[src + 3] : 255;
+          }
+        }
+      }
+      return imageData;
+    }
+
+    function encodeTga(imageData) {
+      const width = imageData.width;
+      const height = imageData.height;
+      const data = imageData.data;
+      const bytes = new Uint8Array(18 + width * height * 4);
+      bytes[2] = 2;
+      bytes[12] = width & 255;
+      bytes[13] = (width >> 8) & 255;
+      bytes[14] = height & 255;
+      bytes[15] = (height >> 8) & 255;
+      bytes[16] = 32;
+      bytes[17] = 0x28;
+
+      let offset = 18;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const src = (y * width + x) * 4;
+          bytes[offset++] = data[src + 2];
+          bytes[offset++] = data[src + 1];
+          bytes[offset++] = data[src];
+          bytes[offset++] = data[src + 3];
+        }
+      }
+      return bytes;
+    }
+
+    renderBadges();
+  </script>
+</body>
+</html>

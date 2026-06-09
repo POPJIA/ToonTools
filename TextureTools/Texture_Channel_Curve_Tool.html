@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Texture Channel Curve Tool</title>
+  <style>
+    :root {
+      --bg: #f1efe8;
+      --panel: #fff;
+      --soft: #f8f6ef;
+      --ink: #171717;
+      --muted: #68645f;
+      --line: #d7d1c6;
+      --accent: #0d716a;
+      --accent-strong: #095852;
+      --danger: #b25538;
+      --shadow: 0 18px 48px rgba(31, 28, 21, .12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(22,22,22,.045) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(22,22,22,.045) 1px, transparent 1px),
+        var(--bg);
+      background-size: 32px 32px;
+    }
+
+    button, input, select { font: inherit; }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease, transform .15s ease;
+    }
+
+    button:hover { border-color: #aaa398; background: #fbfaf6; }
+    button:active { transform: translateY(1px); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent-strong); }
+    button.primary:hover { background: var(--accent-strong); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) 1fr;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: rgba(255,255,255,.84);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 100vh;
+    }
+
+    main {
+      padding: 20px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    h1 {
+      font-size: 22px;
+      line-height: 1.15;
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 13px;
+      line-height: 1.2;
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      border: 1px dashed #b9b1a6;
+      border-radius: 8px;
+      background: var(--soft);
+      padding: 12px;
+      color: var(--muted);
+    }
+
+    .hint {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+      margin: 10px 0 0;
+    }
+
+    .control {
+      display: grid;
+      gap: 7px;
+      margin: 12px 0;
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    input[type="number"], select {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 10px;
+      width: 100%;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .toggle {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+    .toggle:has(input:checked) {
+      border-color: var(--accent);
+      background: rgba(13,113,106,.09);
+      color: var(--ink);
+    }
+
+    .switch {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      min-height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .switch input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+    .curve-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .value {
+      min-width: 54px;
+      text-align: right;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .tabs {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+      min-height: 38px;
+    }
+
+    .tabs button {
+      border: 0;
+      border-radius: 0;
+      min-height: 38px;
+      background: transparent;
+      color: var(--muted);
+      min-width: 66px;
+    }
+
+    .tabs button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .zoom {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .stage {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .viewer {
+      min-width: 0;
+      min-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.9);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      box-shadow: var(--shadow);
+    }
+
+    .viewer-head {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .viewer-head span:last-child {
+      color: var(--muted);
+      font-weight: 500;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      max-width: 58%;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      overflow: auto;
+      min-height: 0;
+      background-color: #ddd7cd;
+      background-image:
+        linear-gradient(45deg, #c9c2b8 25%, transparent 25%),
+        linear-gradient(-45deg, #c9c2b8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #c9c2b8 75%),
+        linear-gradient(-45deg, transparent 75%, #c9c2b8 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      max-width: none;
+      background: transparent;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.16);
+    }
+
+    .empty {
+      position: absolute;
+      inset: 16px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed rgba(0,0,0,.22);
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+      padding: 16px;
+      background: rgba(255,255,255,.45);
+      pointer-events: none;
+    }
+
+    .histogram {
+      width: 100%;
+      height: 108px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #151515;
+      display: block;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      padding: 8px;
+      min-height: 52px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 17px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 6px;
+    }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; }
+      aside { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .stage { grid-template-columns: 1fr; }
+      .viewer { min-height: 340px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <section>
+        <h1>Texture Channel Curve Tool</h1>
+        <p class="sub">贴图通道反转、Remap 和曲线修正。适合 Normal、Mask、SDF、Alpha 等贴图快速处理。</p>
+      </section>
+
+      <section class="panel">
+        <h2>Input</h2>
+        <input id="fileInput" type="file" accept=".png,.tga,image/png">
+        <p id="fileInfo" class="hint">支持 PNG / TGA。TGA 支持常见 8/24/32-bit 非压缩与 RLE。</p>
+      </section>
+
+      <section class="panel">
+        <h2>Channels</h2>
+        <div class="channel-grid">
+          <label class="toggle"><input class="channel" type="checkbox" value="0" checked>R</label>
+          <label class="toggle"><input class="channel" type="checkbox" value="1" checked>G</label>
+          <label class="toggle"><input class="channel" type="checkbox" value="2" checked>B</label>
+          <label class="toggle"><input class="channel" type="checkbox" value="3">A</label>
+        </div>
+        <div class="button-row">
+          <button id="rgbBtn" type="button">RGB</button>
+          <button id="allBtn" type="button">RGBA</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Curve</h2>
+        <label class="switch">
+          <span>Invert Selected</span>
+          <input id="invert" type="checkbox">
+        </label>
+
+        <div class="control">
+          <label for="inMin">Input Min <span id="inMinText">0</span></label>
+          <div class="curve-row"><input id="inMin" type="range" min="0" max="255" value="0"><span class="value">0</span></div>
+        </div>
+        <div class="control">
+          <label for="inMax">Input Max <span id="inMaxText">255</span></label>
+          <div class="curve-row"><input id="inMax" type="range" min="0" max="255" value="255"><span class="value">255</span></div>
+        </div>
+        <div class="control">
+          <label for="outMin">Output Min <span id="outMinText">0</span></label>
+          <div class="curve-row"><input id="outMin" type="range" min="0" max="255" value="0"><span class="value">0</span></div>
+        </div>
+        <div class="control">
+          <label for="outMax">Output Max <span id="outMaxText">255</span></label>
+          <div class="curve-row"><input id="outMax" type="range" min="0" max="255" value="255"><span class="value">255</span></div>
+        </div>
+        <div class="control">
+          <label for="gamma">Gamma <span id="gammaText">1.00</span></label>
+          <div class="curve-row"><input id="gamma" type="range" min="20" max="300" value="100"><span class="value">1.00</span></div>
+        </div>
+        <div class="control">
+          <label for="contrast">Contrast <span id="contrastText">0</span></label>
+          <div class="curve-row"><input id="contrast" type="range" min="-100" max="100" value="0"><span class="value">0</span></div>
+        </div>
+        <div class="control">
+          <label for="brightness">Brightness <span id="brightnessText">0</span></label>
+          <div class="curve-row"><input id="brightness" type="range" min="-255" max="255" value="0"><span class="value">0</span></div>
+        </div>
+        <div class="control">
+          <label for="posterize">Posterize <span id="posterizeText">Off</span></label>
+          <div class="curve-row"><input id="posterize" type="range" min="0" max="32" value="0"><span class="value">Off</span></div>
+        </div>
+
+        <div class="button-row">
+          <button id="resetCurveBtn" type="button">重置曲线</button>
+          <button id="applyPresetBtn" type="button">Invert RG</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Histogram</h2>
+        <canvas id="histogram" class="histogram" width="512" height="108"></canvas>
+        <div class="stat-grid">
+          <div class="stat"><strong id="minStat">-</strong><span>Min</span></div>
+          <div class="stat"><strong id="maxStat">-</strong><span>Max</span></div>
+          <div class="stat"><strong id="avgStat">-</strong><span>Avg</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Export</h2>
+        <div class="row">
+          <select id="exportFormat">
+            <option value="png">PNG</option>
+            <option value="tga">TGA</option>
+          </select>
+          <button id="exportBtn" class="primary" disabled>导出结果</button>
+        </div>
+      </section>
+    </aside>
+
+    <main>
+      <div class="toolbar">
+        <div class="tabs" role="tablist" aria-label="Preview mode">
+          <button class="active" data-view="rgba" type="button">RGBA</button>
+          <button data-view="r" type="button">R</button>
+          <button data-view="g" type="button">G</button>
+          <button data-view="b" type="button">B</button>
+          <button data-view="a" type="button">A</button>
+          <button data-view="diff" type="button">Diff</button>
+        </div>
+        <label class="zoom">
+          Zoom
+          <select id="zoom">
+            <option value="fit">Fit</option>
+            <option value="1">100%</option>
+            <option value="2">200%</option>
+            <option value="4">400%</option>
+          </select>
+        </label>
+      </div>
+
+      <section class="stage">
+        <article class="viewer">
+          <div class="viewer-head"><span>Original</span><span id="originalLabel">no texture</span></div>
+          <div class="canvas-wrap">
+            <canvas id="originalCanvas"></canvas>
+            <div id="originalEmpty" class="empty">选择一张贴图</div>
+          </div>
+        </article>
+        <article class="viewer">
+          <div class="viewer-head"><span>Result</span><span id="resultLabel">not generated</span></div>
+          <div class="canvas-wrap">
+            <canvas id="resultCanvas"></canvas>
+            <div id="resultEmpty" class="empty">调整参数后查看结果</div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      fileName: "",
+      imageData: null,
+      resultData: null,
+      width: 0,
+      height: 0,
+      view: "rgba"
+    };
+
+    const els = {
+      fileInput: document.getElementById("fileInput"),
+      fileInfo: document.getElementById("fileInfo"),
+      originalCanvas: document.getElementById("originalCanvas"),
+      resultCanvas: document.getElementById("resultCanvas"),
+      originalEmpty: document.getElementById("originalEmpty"),
+      resultEmpty: document.getElementById("resultEmpty"),
+      originalLabel: document.getElementById("originalLabel"),
+      resultLabel: document.getElementById("resultLabel"),
+      exportFormat: document.getElementById("exportFormat"),
+      exportBtn: document.getElementById("exportBtn"),
+      zoom: document.getElementById("zoom"),
+      invert: document.getElementById("invert"),
+      inMin: document.getElementById("inMin"),
+      inMax: document.getElementById("inMax"),
+      outMin: document.getElementById("outMin"),
+      outMax: document.getElementById("outMax"),
+      gamma: document.getElementById("gamma"),
+      contrast: document.getElementById("contrast"),
+      brightness: document.getElementById("brightness"),
+      posterize: document.getElementById("posterize"),
+      histogram: document.getElementById("histogram"),
+      minStat: document.getElementById("minStat"),
+      maxStat: document.getElementById("maxStat"),
+      avgStat: document.getElementById("avgStat"),
+      rgbBtn: document.getElementById("rgbBtn"),
+      allBtn: document.getElementById("allBtn"),
+      resetCurveBtn: document.getElementById("resetCurveBtn"),
+      applyPresetBtn: document.getElementById("applyPresetBtn")
+    };
+
+    const sliders = ["inMin", "inMax", "outMin", "outMax", "gamma", "contrast", "brightness", "posterize"];
+    const labels = {
+      inMin: document.getElementById("inMinText"),
+      inMax: document.getElementById("inMaxText"),
+      outMin: document.getElementById("outMinText"),
+      outMax: document.getElementById("outMaxText"),
+      gamma: document.getElementById("gammaText"),
+      contrast: document.getElementById("contrastText"),
+      brightness: document.getElementById("brightnessText"),
+      posterize: document.getElementById("posterizeText")
+    };
+
+    els.fileInput.addEventListener("change", loadSelectedFile);
+    els.invert.addEventListener("change", process);
+    sliders.forEach((name) => els[name].addEventListener("input", () => {
+      updateControlLabels();
+      process();
+    }));
+    document.querySelectorAll(".channel").forEach((input) => input.addEventListener("change", process));
+    document.querySelectorAll(".tabs button").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
+        button.classList.add("active");
+        state.view = button.dataset.view;
+        renderCanvases();
+      });
+    });
+    els.zoom.addEventListener("change", applyZoom);
+    els.exportBtn.addEventListener("click", exportResult);
+    els.rgbBtn.addEventListener("click", () => setChannels([0, 1, 2]));
+    els.allBtn.addEventListener("click", () => setChannels([0, 1, 2, 3]));
+    els.resetCurveBtn.addEventListener("click", resetCurve);
+    els.applyPresetBtn.addEventListener("click", () => {
+      setChannels([0, 1]);
+      resetCurve(false);
+      els.invert.checked = true;
+      process();
+    });
+
+    updateControlLabels();
+    drawEmptyHistogram();
+
+    async function loadSelectedFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        const imageData = await loadTextureFile(file);
+        state.fileName = file.name.replace(/\.[^.]+$/, "");
+        state.imageData = imageData;
+        state.width = imageData.width;
+        state.height = imageData.height;
+        els.originalLabel.textContent = file.name;
+        els.fileInfo.textContent = `${file.name} loaded`;
+        els.originalEmpty.style.display = "none";
+        els.resultEmpty.style.display = "none";
+        process();
+      } catch (error) {
+        alert(error.message || error);
+      }
+    }
+
+    async function loadTextureFile(file) {
+      const ext = file.name.split(".").pop().toLowerCase();
+      const buffer = await file.arrayBuffer();
+      if (ext === "tga") return decodeTga(buffer);
+      return decodeBrowserImage(buffer);
+    }
+
+    function decodeBrowserImage(buffer) {
+      return new Promise((resolve, reject) => {
+        const blob = new Blob([buffer]);
+        const url = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(image, 0, 0);
+          URL.revokeObjectURL(url);
+          resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("图片读取失败"));
+        };
+        image.src = url;
+      });
+    }
+
+    function process() {
+      updateControlLabels();
+      if (!state.imageData) return;
+      const src = state.imageData.data;
+      const out = new Uint8ClampedArray(src);
+      const selected = getSelectedChannels();
+      const params = getParams();
+      const lut = buildLut(params);
+
+      for (let i = 0; i < src.length; i += 4) {
+        for (const ch of selected) {
+          out[i + ch] = lut[src[i + ch]];
+        }
+      }
+
+      state.resultData = new ImageData(out, state.width, state.height);
+      els.resultLabel.textContent = `${state.width}x${state.height}`;
+      els.exportBtn.disabled = false;
+      renderCanvases();
+      drawHistogram(state.resultData, selected);
+    }
+
+    function getParams() {
+      return {
+        invert: els.invert.checked,
+        inMin: Number(els.inMin.value),
+        inMax: Number(els.inMax.value),
+        outMin: Number(els.outMin.value),
+        outMax: Number(els.outMax.value),
+        gamma: Number(els.gamma.value) / 100,
+        contrast: Number(els.contrast.value),
+        brightness: Number(els.brightness.value),
+        posterize: Number(els.posterize.value)
+      };
+    }
+
+    function buildLut(params) {
+      const lut = new Uint8ClampedArray(256);
+      const inputSpan = Math.max(1, params.inMax - params.inMin);
+      const outputSpan = params.outMax - params.outMin;
+      const contrastFactor = (259 * (params.contrast + 255)) / (255 * (259 - params.contrast));
+      for (let v = 0; v < 256; v++) {
+        let t = clamp01((v - params.inMin) / inputSpan);
+        if (params.invert) t = 1 - t;
+        t = Math.pow(t, 1 / Math.max(0.001, params.gamma));
+        let out = params.outMin + t * outputSpan;
+        out = contrastFactor * (out - 128) + 128;
+        out += params.brightness;
+        if (params.posterize > 1) {
+          const levels = params.posterize;
+          out = Math.round(Math.round(clamp255(out) / 255 * (levels - 1)) / (levels - 1) * 255);
+        }
+        lut[v] = clamp255(out);
+      }
+      return lut;
+    }
+
+    function renderCanvases() {
+      if (!state.imageData || !state.resultData) return;
+      drawImageData(els.originalCanvas, previewImageData(state.imageData, state.view, state.imageData));
+      drawImageData(els.resultCanvas, previewImageData(state.resultData, state.view, state.imageData));
+      applyZoom();
+    }
+
+    function previewImageData(imageData, view, original) {
+      if (view === "rgba") return imageData;
+      const src = imageData.data;
+      const base = original.data;
+      const out = new Uint8ClampedArray(src.length);
+      const channelMap = { r: 0, g: 1, b: 2, a: 3 };
+      if (view === "diff") {
+        for (let i = 0; i < src.length; i += 4) {
+          out[i] = Math.abs(src[i] - base[i]);
+          out[i + 1] = Math.abs(src[i + 1] - base[i + 1]);
+          out[i + 2] = Math.abs(src[i + 2] - base[i + 2]);
+          out[i + 3] = 255;
+        }
+      } else {
+        const ch = channelMap[view];
+        for (let i = 0; i < src.length; i += 4) {
+          const v = src[i + ch];
+          out[i] = v;
+          out[i + 1] = v;
+          out[i + 2] = v;
+          out[i + 3] = 255;
+        }
+      }
+      return new ImageData(out, imageData.width, imageData.height);
+    }
+
+    function drawImageData(canvas, imageData) {
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+      canvas.getContext("2d").putImageData(imageData, 0, 0);
+    }
+
+    function applyZoom() {
+      const zoom = els.zoom.value;
+      for (const canvas of [els.originalCanvas, els.resultCanvas]) {
+        if (!canvas.width || !canvas.height) continue;
+        if (zoom === "fit") {
+          canvas.style.width = "min(100%, 720px)";
+          canvas.style.height = "auto";
+        } else {
+          canvas.style.width = `${canvas.width * Number(zoom)}px`;
+          canvas.style.height = `${canvas.height * Number(zoom)}px`;
+        }
+      }
+    }
+
+    function drawHistogram(imageData, channels) {
+      const ctx = els.histogram.getContext("2d");
+      const width = els.histogram.width;
+      const height = els.histogram.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#151515";
+      ctx.fillRect(0, 0, width, height);
+
+      const hists = channels.map(() => new Uint32Array(256));
+      const data = imageData.data;
+      let min = 255;
+      let max = 0;
+      let sum = 0;
+      let samples = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        channels.forEach((ch, index) => {
+          const v = data[i + ch];
+          hists[index][v]++;
+          min = Math.min(min, v);
+          max = Math.max(max, v);
+          sum += v;
+          samples++;
+        });
+      }
+
+      const peak = Math.max(1, ...hists.flatMap((hist) => Array.from(hist)));
+      const colors = ["rgba(255,80,80,.75)", "rgba(80,255,140,.75)", "rgba(80,140,255,.75)", "rgba(255,255,255,.75)"];
+      channels.forEach((ch, index) => {
+        ctx.strokeStyle = colors[ch];
+        ctx.beginPath();
+        for (let x = 0; x < 256; x++) {
+          const px = x / 255 * (width - 1);
+          const py = height - (hists[index][x] / peak) * (height - 8) - 4;
+          if (x === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      });
+
+      els.minStat.textContent = samples ? min : "-";
+      els.maxStat.textContent = samples ? max : "-";
+      els.avgStat.textContent = samples ? (sum / samples).toFixed(1) : "-";
+    }
+
+    function drawEmptyHistogram() {
+      const ctx = els.histogram.getContext("2d");
+      ctx.fillStyle = "#151515";
+      ctx.fillRect(0, 0, els.histogram.width, els.histogram.height);
+      ctx.strokeStyle = "rgba(255,255,255,.12)";
+      for (let i = 0; i <= 4; i++) {
+        const y = i / 4 * els.histogram.height;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(els.histogram.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function setChannels(channels) {
+      document.querySelectorAll(".channel").forEach((input) => {
+        input.checked = channels.includes(Number(input.value));
+      });
+      process();
+    }
+
+    function getSelectedChannels() {
+      const channels = Array.from(document.querySelectorAll(".channel:checked")).map((input) => Number(input.value));
+      return channels.length ? channels : [];
+    }
+
+    function resetCurve(runProcess = true) {
+      els.invert.checked = false;
+      els.inMin.value = 0;
+      els.inMax.value = 255;
+      els.outMin.value = 0;
+      els.outMax.value = 255;
+      els.gamma.value = 100;
+      els.contrast.value = 0;
+      els.brightness.value = 0;
+      els.posterize.value = 0;
+      updateControlLabels();
+      if (runProcess) process();
+    }
+
+    function updateControlLabels() {
+      const values = {
+        inMin: els.inMin.value,
+        inMax: els.inMax.value,
+        outMin: els.outMin.value,
+        outMax: els.outMax.value,
+        gamma: (Number(els.gamma.value) / 100).toFixed(2),
+        contrast: els.contrast.value,
+        brightness: els.brightness.value,
+        posterize: Number(els.posterize.value) === 0 ? "Off" : els.posterize.value
+      };
+      Object.entries(values).forEach(([key, value]) => {
+        labels[key].textContent = value;
+        const rowValue = els[key].parentElement.querySelector(".value");
+        if (rowValue) rowValue.textContent = value;
+      });
+      if (Number(els.inMin.value) >= Number(els.inMax.value)) {
+        els.inMax.value = Math.min(255, Number(els.inMin.value) + 1);
+        labels.inMax.textContent = els.inMax.value;
+        els.inMax.parentElement.querySelector(".value").textContent = els.inMax.value;
+      }
+    }
+
+    function exportResult() {
+      if (!state.resultData) return;
+      const format = els.exportFormat.value;
+      const safeName = state.fileName || "texture_curve";
+      if (format === "tga") {
+        const blob = new Blob([encodeTga32(state.resultData)], { type: "application/octet-stream" });
+        downloadBlob(blob, `${safeName}_curve.tga`);
+      } else {
+        const canvas = document.createElement("canvas");
+        canvas.width = state.resultData.width;
+        canvas.height = state.resultData.height;
+        canvas.getContext("2d").putImageData(state.resultData, 0, 0);
+        canvas.toBlob((blob) => downloadBlob(blob, `${safeName}_curve.png`), "image/png");
+      }
+    }
+
+    function downloadBlob(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function clamp01(v) {
+      return v < 0 ? 0 : v > 1 ? 1 : v;
+    }
+
+    function clamp255(v) {
+      return Math.round(v < 0 ? 0 : v > 255 ? 255 : v);
+    }
+
+    function decodeTga(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length < 18) throw new Error("TGA 文件过小");
+      const idLength = bytes[0];
+      const colorMapType = bytes[1];
+      const imageType = bytes[2];
+      const colorMapLength = bytes[5] | (bytes[6] << 8);
+      const colorMapDepth = bytes[7];
+      const width = bytes[12] | (bytes[13] << 8);
+      const height = bytes[14] | (bytes[15] << 8);
+      const bpp = bytes[16];
+      const descriptor = bytes[17];
+      if (!width || !height) throw new Error("TGA 尺寸无效");
+      if (![2, 3, 10, 11].includes(imageType)) throw new Error("只支持常见非压缩/RLE TGA");
+      if (![8, 24, 32].includes(bpp)) throw new Error("只支持 8/24/32-bit TGA");
+
+      let offset = 18 + idLength;
+      if (colorMapType) offset += colorMapLength * Math.ceil(colorMapDepth / 8);
+
+      const pixelCount = width * height;
+      const out = new Uint8ClampedArray(pixelCount * 4);
+      const bytesPerPixel = bpp / 8;
+      const originTop = (descriptor & 0x20) !== 0;
+      const originRight = (descriptor & 0x10) !== 0;
+
+      function writePixel(pixelIndex, rgba) {
+        const x = pixelIndex % width;
+        const y = Math.floor(pixelIndex / width);
+        const tx = originRight ? width - 1 - x : x;
+        const ty = originTop ? y : height - 1 - y;
+        const dst = (ty * width + tx) * 4;
+        out[dst] = rgba[0];
+        out[dst + 1] = rgba[1];
+        out[dst + 2] = rgba[2];
+        out[dst + 3] = rgba[3];
+      }
+
+      function readPixel() {
+        if (offset + bytesPerPixel > bytes.length) throw new Error("TGA 数据不完整");
+        let r, g, b, a;
+        if (bpp === 8) {
+          r = g = b = bytes[offset];
+          a = 255;
+        } else {
+          b = bytes[offset];
+          g = bytes[offset + 1];
+          r = bytes[offset + 2];
+          a = bpp === 32 ? bytes[offset + 3] : 255;
+        }
+        offset += bytesPerPixel;
+        return [r, g, b, a];
+      }
+
+      if (imageType === 2 || imageType === 3) {
+        for (let p = 0; p < pixelCount; p++) writePixel(p, readPixel());
+      } else {
+        let p = 0;
+        while (p < pixelCount) {
+          if (offset >= bytes.length) throw new Error("TGA RLE 数据不完整");
+          const header = bytes[offset++];
+          const runLength = (header & 0x7f) + 1;
+          if (header & 0x80) {
+            const rgba = readPixel();
+            for (let i = 0; i < runLength && p < pixelCount; i++, p++) writePixel(p, rgba);
+          } else {
+            for (let i = 0; i < runLength && p < pixelCount; i++, p++) writePixel(p, readPixel());
+          }
+        }
+      }
+
+      return new ImageData(out, width, height);
+    }
+
+    function encodeTga32(imageData) {
+      const width = imageData.width;
+      const height = imageData.height;
+      const src = imageData.data;
+      const header = new Uint8Array(18);
+      header[2] = 2;
+      header[12] = width & 255;
+      header[13] = (width >> 8) & 255;
+      header[14] = height & 255;
+      header[15] = (height >> 8) & 255;
+      header[16] = 32;
+      header[17] = 8 | 0x20;
+      const pixels = new Uint8Array(width * height * 4);
+      for (let i = 0, p = 0; i < src.length; i += 4, p += 4) {
+        pixels[p] = src[i + 2];
+        pixels[p + 1] = src[i + 1];
+        pixels[p + 2] = src[i];
+        pixels[p + 3] = src[i + 3];
+      }
+      const out = new Uint8Array(header.length + pixels.length);
+      out.set(header, 0);
+      out.set(pixels, header.length);
+      return out.buffer;
+    }
+  </script>
+</body>
+</html>

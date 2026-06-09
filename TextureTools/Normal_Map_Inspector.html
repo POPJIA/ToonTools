@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Normal Map Inspector</title>
+  <style>
+    :root {
+      --bg: #f3f1ea;
+      --panel: #fff;
+      --soft: #f8f6ef;
+      --ink: #171717;
+      --muted: #68645d;
+      --line: #d8d2c6;
+      --accent: #0f7e78;
+      --accent-strong: #09615d;
+      --warning: #ba5535;
+      --shadow: 0 18px 48px rgba(31, 28, 21, .12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(23,23,23,.045) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(23,23,23,.045) 1px, transparent 1px),
+        var(--bg);
+      background-size: 32px 32px;
+    }
+
+    button, input, select { font: inherit; }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+    button:disabled { opacity: .46; cursor: not-allowed; }
+    .primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+    .primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+    .icon { width: 17px; height: 17px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .hidden { display: none !important; }
+
+    .shell { width: min(1480px, calc(100vw - 36px)); margin: 0 auto; padding: 22px 0 28px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0 18px; }
+    .brand { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+    h1 { margin: 0; font-size: clamp(22px, 2vw, 32px); line-height: 1.1; letter-spacing: 0; white-space: nowrap; }
+    .subtitle { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 14px; align-items: start; }
+    .sidebar, .workspace { background: rgba(255,255,255,.88); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+    .sidebar { padding: 14px; position: sticky; top: 14px; }
+    .workspace { padding: 14px; min-width: 0; }
+
+    .dropzone {
+      min-height: 156px;
+      padding: 14px;
+      border: 1px dashed #a69f93;
+      border-radius: 8px;
+      background: var(--soft);
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+    .dropzone.dragging { border-color: var(--accent); background: #e9f4f1; }
+    .drop-inner { display: grid; gap: 10px; justify-items: center; }
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: radial-gradient(circle at 35% 35%, #a7a7ff 0 18%, #8080ff 19% 48%, #64d69b 49% 70%, #f07979 71% 100%);
+      box-shadow: inset 0 0 0 6px rgba(255,255,255,.35);
+    }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .section { display: grid; gap: 10px; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
+    .label { font-size: 12px; font-weight: 700; color: #46423d; text-transform: uppercase; letter-spacing: 0; }
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #eee9df;
+    }
+    .segmented.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .segmented.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .segmented button { min-height: 36px; border: 0; border-radius: 6px; background: transparent; font-size: 13px; padding: 0 8px; }
+    .segmented button.active { background: var(--panel); color: var(--accent-strong); box-shadow: 0 2px 8px rgba(31,28,21,.10); font-weight: 700; }
+    .stats { display: grid; gap: 8px; font-size: 13px; }
+    .stat { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; align-items: center; }
+    .stat b { color: var(--muted); font-weight: 600; }
+    .stat span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .range-row { display: grid; grid-template-columns: 1fr 54px; gap: 10px; align-items: center; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .small-value { font-size: 13px; color: var(--muted); text-align: right; }
+
+    .viewbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .viewbar .segmented { width: min(680px, 100%); grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .preview { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-width: 0; overflow: hidden; }
+    .preview-head { height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--line); background: #fbfaf7; font-size: 13px; font-weight: 700; }
+    .badge { font-size: 11px; font-weight: 700; color: #285d59; border: 1px solid #a6d1cd; background: #e6f4f2; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
+    .canvas-wrap {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      background-color: #b8b3aa;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.45) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.45) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.45) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.45) 75%);
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+      background-size: 24px 24px;
+    }
+    canvas { max-width: 100%; max-height: min(72vh, 760px); display: none; box-shadow: 0 0 0 1px rgba(0,0,0,.12); background: transparent; }
+    .empty { display: grid; gap: 8px; place-items: center; color: #4d4942; text-align: center; padding: 24px; max-width: 360px; }
+    .empty span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .footer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    @media (max-width: 1040px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .preview-grid { grid-template-columns: 1fr; }
+      .canvas-wrap { min-height: 360px; }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100vw - 22px, 1480px); padding-top: 12px; }
+      .topbar { align-items: stretch; flex-direction: column; }
+      .brand { display: grid; gap: 6px; }
+      h1, .subtitle { white-space: normal; }
+      .toolbar, .footer-actions { justify-content: stretch; }
+      .toolbar button, .footer-actions button { flex: 1 1 auto; }
+      .viewbar .segmented { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <input id="fileInput" class="hidden" type="file" accept="image/png,image/tga,.png,.tga">
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Normal Map Inspector</h1>
+        <div class="subtitle">检查法线长度、方向、坏像素，并导出修正结果</div>
+      </div>
+      <div class="toolbar">
+        <button id="pickBtn" class="primary" type="button">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8 12 3 7 8"/><path d="M12 3v12"/></svg>
+          选择贴图
+        </button>
+        <button id="downloadBtn" type="button" disabled>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          下载
+        </button>
+        <button id="resetBtn" type="button" disabled>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+          清空
+        </button>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <div id="dropzone" class="dropzone">
+          <div class="drop-inner">
+            <div class="drop-icon"></div>
+            <button id="pickInsideBtn" type="button">导入 PNG / TGA</button>
+            <div class="hint">支持 PNG、未压缩/RLE TGA。输出可选 PNG / TGA。</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">修正操作</div>
+          <div class="segmented three" role="tablist">
+            <button class="active" type="button" data-operation="flipG">Flip G</button>
+            <button type="button" data-operation="normalize">Normalize</button>
+            <button type="button" data-operation="flipGNormalize">Flip+Norm</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">导出格式</div>
+          <div class="segmented" role="tablist">
+            <button class="active" type="button" data-format="png">PNG</button>
+            <button type="button" data-format="tga">TGA</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="label">坏像素阈值</div>
+          <div class="range-row">
+            <input id="thresholdInput" type="range" min="0.01" max="0.40" value="0.12" step="0.01">
+            <div class="small-value" id="thresholdValue">0.12</div>
+          </div>
+          <div class="hint">长度偏离 1 超过该值时，在“问题”视图中标红。</div>
+        </div>
+
+        <div class="section">
+          <div class="label">当前图片</div>
+          <div class="stats">
+            <div class="stat"><b>文件</b><span id="fileName">未导入</span></div>
+            <div class="stat"><b>尺寸</b><span id="imageSize">-</span></div>
+            <div class="stat"><b>平均长度</b><span id="avgLength">-</span></div>
+            <div class="stat"><b>坏像素</b><span id="badPixels">-</span></div>
+            <div class="stat"><b>输出</b><span id="outputName">-</span></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="viewbar">
+          <div class="segmented" role="tablist">
+            <button class="active" type="button" data-view="rgb">RGB</button>
+            <button type="button" data-view="xyz">XYZ</button>
+            <button type="button" data-view="green">Green</button>
+            <button type="button" data-view="length">长度</button>
+            <button type="button" data-view="issues">问题</button>
+          </div>
+          <div class="hint" id="statusText">等待导入贴图</div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview">
+            <div class="preview-head"><span>原图</span><span class="badge">Source</span></div>
+            <div class="canvas-wrap">
+              <canvas id="sourceCanvas"></canvas>
+              <div id="sourceEmpty" class="empty"><strong>没有导入图片</strong><span>导入后显示原始法线贴图。</span></div>
+            </div>
+          </article>
+          <article class="preview">
+            <div class="preview-head"><span>修正结果</span><span class="badge" id="resultBadge">Flip G</span></div>
+            <div class="canvas-wrap">
+              <canvas id="resultCanvas"></canvas>
+              <div id="resultEmpty" class="empty"><strong>等待处理</strong><span>结果根据左侧修正操作实时生成。</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="footer-actions">
+          <button id="downloadBottomBtn" class="primary" type="button" disabled>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            下载修正图
+          </button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+    const fileInput = $('#fileInput');
+    const sourceCanvas = $('#sourceCanvas');
+    const resultCanvas = $('#resultCanvas');
+    const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+    const resultCtx = resultCanvas.getContext('2d', { willReadFrequently: true });
+
+    const state = {
+      fileName: '',
+      width: 0,
+      height: 0,
+      source: null,
+      result: null,
+      view: 'rgb',
+      operation: 'flipG',
+      format: 'png',
+      threshold: 0.12,
+      stats: null
+    };
+
+    $('#pickBtn').addEventListener('click', () => fileInput.click());
+    $('#pickInsideBtn').addEventListener('click', () => fileInput.click());
+    $('#downloadBtn').addEventListener('click', downloadResult);
+    $('#downloadBottomBtn').addEventListener('click', downloadResult);
+    $('#resetBtn').addEventListener('click', reset);
+    fileInput.addEventListener('change', () => fileInput.files[0] && loadFile(fileInput.files[0]));
+
+    ['dragenter', 'dragover'].forEach((name) => {
+      $('#dropzone').addEventListener(name, (event) => {
+        event.preventDefault();
+        $('#dropzone').classList.add('dragging');
+      });
+    });
+    ['dragleave', 'drop'].forEach((name) => {
+      $('#dropzone').addEventListener(name, (event) => {
+        event.preventDefault();
+        $('#dropzone').classList.remove('dragging');
+      });
+    });
+    $('#dropzone').addEventListener('drop', (event) => {
+      const file = event.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+
+    $$('[data-view]').forEach((button) => button.addEventListener('click', () => {
+      setActive('[data-view]', button);
+      state.view = button.dataset.view;
+      render();
+    }));
+    $$('[data-operation]').forEach((button) => button.addEventListener('click', () => {
+      setActive('[data-operation]', button);
+      state.operation = button.dataset.operation;
+      process();
+    }));
+    $$('[data-format]').forEach((button) => button.addEventListener('click', () => {
+      setActive('[data-format]', button);
+      state.format = button.dataset.format;
+      updateInfo();
+    }));
+    $('#thresholdInput').addEventListener('input', (event) => {
+      state.threshold = Number(event.target.value);
+      $('#thresholdValue').textContent = state.threshold.toFixed(2);
+      state.stats = analyze(state.source);
+      updateInfo();
+      render();
+    });
+
+    function setActive(selector, activeButton) {
+      $$(selector).forEach((button) => button.classList.toggle('active', button === activeButton));
+    }
+
+    async function loadFile(file) {
+      $('#statusText').textContent = '正在读取图片...';
+      try {
+        state.fileName = file.name || 'normal.png';
+        state.source = await readImageFile(file);
+        state.width = state.source.width;
+        state.height = state.source.height;
+        sourceCanvas.width = resultCanvas.width = state.width;
+        sourceCanvas.height = resultCanvas.height = state.height;
+        state.stats = analyze(state.source);
+        process();
+        setEnabled(true);
+        $('#statusText').textContent = '已读取并生成检查视图';
+      } catch (error) {
+        console.error(error);
+        $('#statusText').textContent = '读取失败：请导入 PNG 或未压缩/RLE TGA';
+      }
+    }
+
+    async function readImageFile(file) {
+      const name = (file.name || '').toLowerCase();
+      if (name.endsWith('.tga')) return decodeTga(await file.arrayBuffer());
+      if (!name.endsWith('.png')) throw new Error('Only PNG and TGA are supported');
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
+
+    function process() {
+      if (!state.source) return;
+      state.result = transformNormal(state.source, state.operation);
+      $('#resultBadge').textContent = operationLabel(state.operation);
+      updateInfo();
+      render();
+    }
+
+    function transformNormal(imageData, operation) {
+      const out = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+      const data = out.data;
+      for (let i = 0; i < data.length; i += 4) {
+        if (operation === 'flipG' || operation === 'flipGNormalize') data[i + 1] = 255 - data[i + 1];
+        if (operation === 'normalize' || operation === 'flipGNormalize') {
+          let x = data[i] / 127.5 - 1;
+          let y = data[i + 1] / 127.5 - 1;
+          let z = data[i + 2] / 127.5 - 1;
+          const len = Math.hypot(x, y, z) || 1;
+          x /= len;
+          y /= len;
+          z /= len;
+          data[i] = Math.round((x * 0.5 + 0.5) * 255);
+          data[i + 1] = Math.round((y * 0.5 + 0.5) * 255);
+          data[i + 2] = Math.round((z * 0.5 + 0.5) * 255);
+        }
+      }
+      return out;
+    }
+
+    function analyze(imageData) {
+      if (!imageData) return null;
+      const data = imageData.data;
+      let sum = 0;
+      let bad = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const x = data[i] / 127.5 - 1;
+        const y = data[i + 1] / 127.5 - 1;
+        const z = data[i + 2] / 127.5 - 1;
+        const len = Math.hypot(x, y, z);
+        sum += len;
+        if (Math.abs(len - 1) > state.threshold) bad++;
+      }
+      const pixels = data.length / 4;
+      return { avg: sum / pixels, bad, pixels };
+    }
+
+    function render() {
+      const hasImage = Boolean(state.source && state.result);
+      sourceCanvas.style.display = hasImage ? 'block' : 'none';
+      resultCanvas.style.display = hasImage ? 'block' : 'none';
+      $('#sourceEmpty').classList.toggle('hidden', hasImage);
+      $('#resultEmpty').classList.toggle('hidden', hasImage);
+      if (!hasImage) return;
+      sourceCtx.putImageData(makePreview(state.source, state.view), 0, 0);
+      resultCtx.putImageData(makePreview(state.result, state.view), 0, 0);
+    }
+
+    function makePreview(imageData, view) {
+      const out = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+      const data = out.data;
+      if (view === 'rgb') return out;
+      for (let i = 0; i < data.length; i += 4) {
+        const x = data[i] / 127.5 - 1;
+        const y = data[i + 1] / 127.5 - 1;
+        const z = data[i + 2] / 127.5 - 1;
+        const len = Math.hypot(x, y, z);
+        if (view === 'xyz') {
+          data[i] = Math.round((x * 0.5 + 0.5) * 255);
+          data[i + 1] = Math.round((y * 0.5 + 0.5) * 255);
+          data[i + 2] = Math.round((z * 0.5 + 0.5) * 255);
+        } else if (view === 'green') {
+          const g = data[i + 1];
+          data[i] = g; data[i + 1] = g; data[i + 2] = g;
+        } else if (view === 'length') {
+          const t = Math.max(0, Math.min(1, len / 1.4));
+          data[i] = Math.round(255 * Math.max(0, t * 2 - 1));
+          data[i + 1] = Math.round(255 * (1 - Math.abs(t * 2 - 1)));
+          data[i + 2] = Math.round(255 * Math.max(0, 1 - t * 2));
+        } else if (view === 'issues') {
+          const isBad = Math.abs(len - 1) > state.threshold;
+          data[i] = isBad ? 255 : 22;
+          data[i + 1] = isBad ? 42 : 220;
+          data[i + 2] = isBad ? 24 : 190;
+        }
+      }
+      return out;
+    }
+
+    function updateInfo() {
+      if (!state.source) {
+        $('#fileName').textContent = '未导入';
+        $('#imageSize').textContent = '-';
+        $('#avgLength').textContent = '-';
+        $('#badPixels').textContent = '-';
+        $('#outputName').textContent = '-';
+        return;
+      }
+      $('#fileName').textContent = state.fileName;
+      $('#imageSize').textContent = `${state.width} x ${state.height}`;
+      $('#avgLength').textContent = state.stats.avg.toFixed(4);
+      $('#badPixels').textContent = `${state.stats.bad.toLocaleString()} / ${state.stats.pixels.toLocaleString()}`;
+      $('#outputName').textContent = outputName();
+    }
+
+    function outputName() {
+      if (!state.fileName) return '-';
+      const clean = state.fileName.replace(/\.[^.]+$/, '');
+      return `${clean}_${operationLabel(state.operation).replace('+', '_')}.${state.format}`;
+    }
+
+    function operationLabel(op) {
+      return op === 'flipG' ? 'FlipG' : op === 'normalize' ? 'Normalize' : 'FlipG+Normalize';
+    }
+
+    function setEnabled(enabled) {
+      $('#downloadBtn').disabled = !enabled;
+      $('#downloadBottomBtn').disabled = !enabled;
+      $('#resetBtn').disabled = !enabled;
+    }
+
+    function downloadResult() {
+      if (!state.result) return;
+      if (state.format === 'tga') {
+        saveBlob(new Blob([encodeTga(state.result)], { type: 'image/x-tga' }));
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = state.width;
+      canvas.height = state.height;
+      canvas.getContext('2d').putImageData(state.result, 0, 0);
+      canvas.toBlob((blob) => blob && saveBlob(blob), 'image/png');
+    }
+
+    function saveBlob(blob) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = outputName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      $('#statusText').textContent = `已导出 ${link.download}`;
+    }
+
+    function reset() {
+      state.fileName = '';
+      state.width = 0;
+      state.height = 0;
+      state.source = null;
+      state.result = null;
+      state.stats = null;
+      fileInput.value = '';
+      [sourceCanvas, resultCanvas].forEach((canvas) => {
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = 0;
+        canvas.height = 0;
+      });
+      setEnabled(false);
+      updateInfo();
+      render();
+      $('#statusText').textContent = '等待导入贴图';
+    }
+
+    function decodeTga(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length < 18) throw new Error('Invalid TGA');
+      const idLength = bytes[0], colorMapType = bytes[1], imageType = bytes[2];
+      const width = bytes[12] | (bytes[13] << 8);
+      const height = bytes[14] | (bytes[15] << 8);
+      const bitsPerPixel = bytes[16];
+      const descriptor = bytes[17];
+      const bytesPerPixel = bitsPerPixel / 8;
+      const topOrigin = (descriptor & 0x20) !== 0;
+      if (colorMapType !== 0) throw new Error('Color map TGA is not supported');
+      if (![2, 3, 10, 11].includes(imageType)) throw new Error('Unsupported TGA type');
+      if (![8, 24, 32].includes(bitsPerPixel)) throw new Error('Unsupported TGA bit depth');
+      let offset = 18 + idLength;
+      const pixelCount = width * height;
+      const raw = new Uint8Array(pixelCount * bytesPerPixel);
+      if (imageType === 10 || imageType === 11) {
+        let ptr = 0;
+        while (ptr < raw.length && offset < bytes.length) {
+          const header = bytes[offset++];
+          const count = (header & 0x7f) + 1;
+          if (header & 0x80) {
+            const pixel = bytes.slice(offset, offset + bytesPerPixel);
+            offset += bytesPerPixel;
+            for (let i = 0; i < count; i++) { raw.set(pixel, ptr); ptr += bytesPerPixel; }
+          } else {
+            const size = count * bytesPerPixel;
+            raw.set(bytes.slice(offset, offset + size), ptr);
+            ptr += size; offset += size;
+          }
+        }
+      } else {
+        raw.set(bytes.slice(offset, offset + raw.length));
+      }
+      const imageData = new ImageData(width, height);
+      const out = imageData.data;
+      for (let y = 0; y < height; y++) {
+        const srcY = topOrigin ? y : height - 1 - y;
+        for (let x = 0; x < width; x++) {
+          const src = (srcY * width + x) * bytesPerPixel;
+          const dst = (y * width + x) * 4;
+          if (bitsPerPixel === 8) {
+            const v = raw[src];
+            out[dst] = v; out[dst + 1] = v; out[dst + 2] = v; out[dst + 3] = 255;
+          } else {
+            out[dst] = raw[src + 2];
+            out[dst + 1] = raw[src + 1];
+            out[dst + 2] = raw[src];
+            out[dst + 3] = bitsPerPixel === 32 ? raw[src + 3] : 255;
+          }
+        }
+      }
+      return imageData;
+    }
+
+    function encodeTga(imageData) {
+      const width = imageData.width, height = imageData.height, data = imageData.data;
+      const bytes = new Uint8Array(18 + width * height * 4);
+      bytes[2] = 2; bytes[12] = width & 255; bytes[13] = (width >> 8) & 255;
+      bytes[14] = height & 255; bytes[15] = (height >> 8) & 255; bytes[16] = 32; bytes[17] = 0x28;
+      let offset = 18;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const src = (y * width + x) * 4;
+          bytes[offset++] = data[src + 2];
+          bytes[offset++] = data[src + 1];
+          bytes[offset++] = data[src];
+          bytes[offset++] = data[src + 3];
+        }
+      }
+      return bytes;
+    }
+  </script>
+</body>
+</html>
