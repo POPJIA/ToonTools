@@ -6,7 +6,7 @@
 
 点击下方工具名称即可在浏览器中直接使用：
 
-- [Normal Fixer](https://popjia.github.io/ToonTools/NormalFixer/)：快速修复卡通角色法线朝向与平滑度。
+- [Normal Fixer](https://popjia.github.io/ToonTools/NormalFixer/)：修复游戏解包后通道异常导致发红的法线贴图。
 - [Normal Map Inspector](https://popjia.github.io/ToonTools/TextureTools/Normal_Map_Inspector.html)：检查法线贴图方向、通道分布与可视化预览。
 - [Normal DX / OpenGL Switcher](https://popjia.github.io/ToonTools/TextureTools/Normal_DX_OpenGL_Switcher.html)：在 DirectX 与 OpenGL 法线格式之间快速转换。
 - [Texture Channel Curve Tool](https://popjia.github.io/ToonTools/TextureTools/Texture_Channel_Curve_Tool.html)：按通道调整贴图曲线，并查看直方图与导出结果。
